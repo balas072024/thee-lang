@@ -1,0 +1,48 @@
+// ═══ THEE v6.0 — Hello World ═══
+// Run: thee hello.thee
+
+moochhu "வணக்கம் உலகம்! (Hello World!)"
+moochhu ""
+
+// Variables
+na name = "Bala"
+na age = 30
+moochhu "Name: " + name + ", Age: " + age
+
+// Tamil variables work too!
+நா எண் = 42
+மூச்சு "The answer is: " + எண்
+
+// List operations
+na fruits = ["Mango", "Banana", "Apple"]
+moochhu ""
+moochhu "Fruits:"
+ozhugu for fruit ul fruits {
+    moochhu "  🍎 " + fruit
+}
+
+// Function
+thee greet(person) {
+    kanal "Hello, " + person + "! Welcome to THEE."
+}
+moochhu ""
+moochhu greet("World")
+
+// Class
+vagu Animal {
+    thee init(name, sound) {
+        self.name = name
+        self.sound = sound
+    }
+    thee speak() {
+        kanal self.name + " says " + self.sound + "!"
+    }
+}
+
+na dog = pudhu Animal("Dog", "Woof")
+na cat = pudhu Animal("Cat", "Meow")
+moochhu dog.speak()
+moochhu cat.speak()
+
+moochhu ""
+moochhu "✅ THEE is working perfectly!"

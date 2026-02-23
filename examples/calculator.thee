@@ -1,0 +1,47 @@
+// ═══ THEE v6.0 — Calculator with Classes ═══
+// Run: thee calculator.thee
+
+vagu Calculator {
+    thee init() {
+        self.history = []
+    }
+    thee add(a, b) {
+        na result = a + b
+        self.history.push(str(a) + " + " + str(b) + " = " + str(result))
+        kanal result
+    }
+    thee subtract(a, b) {
+        na result = a - b
+        self.history.push(str(a) + " - " + str(b) + " = " + str(result))
+        kanal result
+    }
+    thee multiply(a, b) {
+        na result = a * b
+        self.history.push(str(a) + " × " + str(b) + " = " + str(result))
+        kanal result
+    }
+    thee divide(a, b) {
+        endral b == 0 { kanal "Error: Division by zero" }
+        na result = round(a / b, 2)
+        self.history.push(str(a) + " ÷ " + str(b) + " = " + str(result))
+        kanal result
+    }
+    thee show_history() {
+        moochhu "📋 History:"
+        ozhugu for h ul self.history {
+            moochhu "  " + h
+        }
+    }
+}
+
+na calc = pudhu Calculator()
+
+moochhu "🧮 THEE Calculator"
+moochhu "══════════════════"
+moochhu ""
+moochhu "21 + 21 = " + calc.add(21, 21)
+moochhu "100 - 37 = " + calc.subtract(100, 37)
+moochhu "12 × 12 = " + calc.multiply(12, 12)
+moochhu "355 ÷ 113 = " + calc.divide(355, 113)
+moochhu ""
+calc.show_history()

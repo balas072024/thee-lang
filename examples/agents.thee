@@ -1,0 +1,69 @@
+// ═══ THEE v6.0 — Agent System Demo ═══
+// Run: thee agents.thee
+
+moochhu "🤖 THEE Agent System Demo"
+moochhu "═════════════════════════"
+
+// Define an AI agent with skills
+uyir WeatherBot {
+    thiran check(city) {
+        na temps = {"Chennai": 34, "Dubai": 38, "London": 12, "Tokyo": 22}
+        muyarchi {
+            na temp = temps[city]
+            kanal city + ": " + temp + "°C"
+        } pizhai e {
+            kanal city + ": data not available"
+        }
+    }
+    thiran recommend(temp) {
+        endral temp > 35 { kanal "🥵 Stay indoors, drink water!" }
+        allathu temp > 25 { kanal "☀️ Nice weather, wear sunscreen!" }
+        allathu temp > 15 { kanal "🧥 Bring a light jacket" }
+        kanal "🧣 Bundle up, it's cold!"
+    }
+}
+
+na cities = ["Chennai", "Dubai", "London", "Tokyo"]
+moochhu ""
+ozhugu for city ul cities {
+    na weather = WeatherBot.check(city)
+    moochhu "  " + weather
+}
+
+// Enum + Events
+pirivu Priority { HIGH = "🔴", MEDIUM = "🟡", LOW = "🟢" }
+
+na event_log = []
+nigazhvu_ketpom("task", (msg) => event_log.push(msg))
+
+// Task class
+vagu Task {
+    thee init(title, priority) {
+        self.title = title
+        self.priority = priority
+        self.done = false
+    }
+    thee complete() {
+        self.done = true
+        nigazhvu_anuppu("task", self.priority + " " + self.title + " — Done!")
+    }
+}
+
+moochhu ""
+moochhu "📋 Task Manager:"
+na tasks = [
+    pudhu Task("Deploy app", Priority.HIGH),
+    pudhu Task("Write docs", Priority.MEDIUM),
+    pudhu Task("Code review", Priority.LOW)
+]
+
+ozhugu for t ul tasks {
+    t.complete()
+}
+
+ozhugu for e ul event_log {
+    moochhu "  " + e
+}
+
+moochhu ""
+moochhu "✅ Agent demo complete!"
