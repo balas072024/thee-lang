@@ -102,7 +102,7 @@ class SandboxAllowsTests(unittest.TestCase):
         self.assertEqual(run('konar math\nmoochhu sqrt(9)', sandbox=True), run('konar math\nmoochhu sqrt(9)'))
 
     def test_examples_run_in_sandbox(self):
-        for name in ["hello.thee", "calculator.thee", "tamil.thee"]:
+        for name in ["hello.th", "calculator.th", "tamil.th"]:
             with self.subTest(example=name):
                 r = cli("--sandbox", os.path.join(ROOT, "examples", name))
                 self.assertEqual(r.returncode, 0, r.stderr)

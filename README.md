@@ -20,7 +20,7 @@ THEE (Tamil Human-Equivalent Expression) is a full-featured programming language
 
 ```bash
 # Run a THEE program
-thee hello.thee
+thee hello.th
 ```
 
 ## 📝 Example
@@ -87,9 +87,9 @@ moochhu path.join("a", "b")
 Run code you didn't write yourself — for example code from the THEE AI tutor — safely:
 
 ```bash
-thee --sandbox program.thee                 # 10s timeout, 512 MB memory cap
-thee --sandbox --timeout 5 --max-mem 256 program.thee
-THEE_SANDBOX=1 thee program.thee            # same, via environment variable
+thee --sandbox program.th                 # 10s timeout, 512 MB memory cap
+thee --sandbox --timeout 5 --max-mem 256 program.th
+THEE_SANDBOX=1 thee program.th            # same, via environment variable
 ```
 
 Sandbox mode blocks files, network, shell commands, GPIO, environment variables,
@@ -112,15 +112,15 @@ cd thee-lang
 python install.bat
 
 # Run
-thee examples/hello.thee
+thee examples/hello.th
 ```
 
 ## 📂 Examples
 
-- `examples/hello.thee` - Basic Hello World
-- `examples/calculator.thee` - Calculator demo
-- `examples/tamil.thee` - Full Tamil demo
-- `examples/agents.thee` - AI agents demo
+- `examples/hello.th` - Basic Hello World
+- `examples/calculator.th` - Calculator demo
+- `examples/tamil.th` - Full Tamil demo
+- `examples/agents.th` - AI agents demo
 
 ## 📊 Stats
 

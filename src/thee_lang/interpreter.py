@@ -668,16 +668,19 @@ class TheeInterpreter:
                 for k, v in mod.items(): self.env.set(k, v)
             return
 
-        # File-based import: import "path/to/file.thee"
+        # File-based import: import "path/to/file.th"
         if self.sandbox: _sandbox.check_file_import(path)
-        file_path = path
-        if not file_path.endswith(".thee"): file_path += ".thee"
-        if not os.path.isabs(file_path):
-            # Look relative to current file, then cwd
-            for base in [".", os.path.dirname(sys.argv[-1]) if sys.argv else "."]:
-                candidate = os.path.join(base, file_path)
+        # .th is the main extension; .thee still works
+        names = [path] if path.endswith((".th", ".thee")) else [path + ".th", path + ".thee"]
+        file_path = names[0]
+        found = False
+        for name in names:
+            bases = [""] if os.path.isabs(name) else [".", os.path.dirname(sys.argv[-1]) if sys.argv else "."]
+            for base in bases:
+                candidate = os.path.join(base, name) if base else name
                 if os.path.exists(candidate):
-                    file_path = candidate; break
+                    file_path = candidate; found = True; break
+            if found: break
 
         if not os.path.exists(file_path):
             raise TheeRuntimeError(f"Module not found: '{path}'", node)
@@ -2296,7 +2299,7 @@ def _register_v5_builtins(interp):
     env.set("optimize", lambda name: TheeOptimizer._compiled.get(name, None))
     
     # Docker generation
-    def _docker_gen(app_file="main.thee", port=8000):
+    def _docker_gen(app_file="main.th", port=8000):
         return f"""FROM python:3.12-slim
 WORKDIR /app
 COPY thee /usr/local/bin/thee

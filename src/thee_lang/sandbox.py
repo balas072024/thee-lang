@@ -13,7 +13,7 @@ by the THEE LLM). When sandbox mode is on:
     "".__class__.__mro__);
   * the CLI adds a wall-clock timeout and a memory cap (see bin/thee_cli.py).
 
-Turn it on with `thee --sandbox file.thee`, the THEE_SANDBOX=1 environment
+Turn it on with `thee --sandbox file.th`, the THEE_SANDBOX=1 environment
 variable, or TheeInterpreter(sandbox=True).
 """
 

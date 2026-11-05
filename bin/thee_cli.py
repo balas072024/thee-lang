@@ -5,7 +5,7 @@ Command-line interface
 
 Usage:
     thee                     → Start REPL
-    thee file.thee           → Run a .thee file
+    thee file.th             → Run a THEE file (.th, or the older .thee)
     thee -e "code"           → Execute inline code
     thee -v                  → Show version
     thee -h                  → Show help
@@ -123,7 +123,7 @@ def show_help():
     print()
     print("Usage:")
     print("  thee                     Start interactive REPL")
-    print("  thee <file.thee>         Run a .thee file")
+    print("  thee <file.th>           Run a THEE file (.th or .thee)")
     print("  thee -e \"code\"           Execute inline code")
     print("  thee -v, --version       Show version")
     print("  thee -h, --help          Show this help")
@@ -132,7 +132,7 @@ def show_help():
     print("  --max-mem MB             Memory cap in MB (sandbox default: 512)")
     print()
     print("Examples:")
-    print("  thee hello.thee")
+    print("  thee hello.th")
     print("  thee -e \"moochhu 21 * 2\"")
     print("  thee -e \"na x = [1,2,3]; ozhugu for i ul x { moochhu i }\"")
 
@@ -176,7 +176,7 @@ def main():
         code = ' '.join(args[1:])
         if not run_code(code):
             sys.exit(1)
-    elif args[0].endswith('.thee') or os.path.isfile(args[0]):
+    elif args[0].endswith(('.th', '.thee')) or os.path.isfile(args[0]):
         run_file(args[0])
     else:
         # Try as inline code
