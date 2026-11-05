@@ -892,7 +892,8 @@ class TheeInterpreter:
         else:
             for c, b in n.elif_clauses:
                 if self._truthy(self.evaluate(c)):
-                    for s in b: self.execute(s); return
+                    for s in b: self.execute(s)
+                    return
             for s in n.else_body: self.execute(s)
 
     def _rep_times(self, n):

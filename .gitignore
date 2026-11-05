@@ -8,3 +8,14 @@ build/
 *.log
 .env
 .DS_Store
+# THEE LLM: generated data and model files (large; rebuild with the scripts)
+llm/data/
+llm/benchmark/results/
+llm/train/adapters*/
+llm/train/fused/
+llm/rl/adapters-rl/
+llm/rl/fused-rl/
+llm/package/llama.cpp/
+llm/package/*.gguf
+llm/package/Modelfile
+playground/dist/

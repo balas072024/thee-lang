@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THEE Playground — தீ</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1d1b18; --muted:#6b665e; --line:#e3ded4; --accent:#c2410c; --code:#f3f0ea; --ok:#15803d; --err:#b91c1c; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161513; --fg:#ece8e1; --muted:#a39d93; --line:#2e2b27; --accent:#fb923c; --code:#201e1b; --ok:#4ade80; --err:#f87171; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, "Noto Sans Tamil", sans-serif; }
+  header { padding:14px 20px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; }
+  header h1 { margin:0; font-size:20px; } header h1 span { color:var(--accent); }
+  header p { margin:0; color:var(--muted); font-size:13px; }
+  main { display:grid; grid-template-columns: 1fr 1fr; gap:0; min-height: calc(100vh - 60px); }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+  section { padding:14px 20px; display:flex; flex-direction:column; gap:10px; min-width:0; }
+  section + section { border-left:1px solid var(--line); }
+  @media (max-width: 800px) { section + section { border-left:0; border-top:1px solid var(--line); } }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  button, select { font:inherit; font-size:14px; padding:6px 12px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--fg); cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  button:disabled { opacity:.5; cursor:default; }
+  textarea, pre { font:14px/1.55 ui-monospace, "SF Mono", Menlo, "Noto Sans Tamil", monospace; background:var(--code); border:1px solid var(--line); border-radius:10px; padding:12px; margin:0; color:var(--fg); }
+  textarea { width:100%; flex:1; min-height:320px; resize:vertical; tab-size:4; }
+  pre { white-space:pre-wrap; word-break:break-word; min-height:120px; }
+  .status { font-size:13px; color:var(--muted); }
+  .ok { color:var(--ok); } .err { color:var(--err); }
+  h2 { font-size:14px; margin:4px 0 0; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+  input[type=text] { font:inherit; padding:7px 10px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--fg); flex:1; min-width:200px; }
+  #tutor { min-height:80px; }
+  .hint { font-size:12px; color:var(--muted); }
+  code { background:var(--code); padding:1px 4px; border-radius:4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>தீ</span> THEE Playground</h1>
+  <p>Tamil programming, in your browser. Nothing to install. Code runs in sandbox mode.</p>
+</header>
+<main>
+  <section>
+    <div class="bar">
+      <select id="examples" aria-label="Examples"></select>
+      <button id="run" class="primary" disabled>▶ ஓட்டு (Run)</button>
+      <button id="toTamil" disabled title="Keywords to Tamil script">அ Tamil</button>
+      <button id="toRoman" disabled title="Keywords to romanized">A Roman</button>
+      <span id="status" class="status">Loading THEE…</span>
+    </div>
+    <textarea id="code" spellcheck="false" aria-label="THEE code"></textarea>
+    <div class="hint">Ctrl/⌘ + Enter = Run. Files, network and shell are blocked here; each run stops after 10 seconds.</div>
+  </section>
+  <section>
+    <h2>Output</h2>
+    <pre id="out" aria-live="polite"></pre>
+    <h2>THEE tutor (தமிழ்ல கேளுங்க)</h2>
+    <div class="bar">
+      <input id="ask" type="text" placeholder="எ.கா.: ஒரு list-ல பெரிய number கண்டுபிடிக்கிற function எழுதுங்க">
+      <button id="askBtn">கேளு</button>
+    </div>
+    <pre id="tutor"></pre>
+    <div class="hint">The tutor runs on your own computer with Ollama: install it, run <code>ollama pull thee</code>, then start it with
+      <code>OLLAMA_ORIGINS="*" ollama serve</code> so this page can reach it. "Use code" copies the tutor's answer into the editor.</div>
+    <div class="bar"><button id="useCode" disabled>↙ Use code</button></div>
+  </section>
+</main>
+
+<script>
+const SRC_FILES = ["__init__.py", "lexer.py", "parser.py", "interpreter.py", "sandbox.py"];
+const BASE = new URL("../src/thee_lang/", location.href).href;
+const CONVERTER = new URL("../llm/pipeline/tamil_script.py", location.href).href;
+const PYODIDE = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/";
+const TIMEOUT_MS = 10000;
+
+const EXAMPLES = {
+  "வணக்கம் (Hello)": 'மூச்சு "வணக்கம் உலகம்!"\nநா பெயர் = "கவிதா"\nமூச்சு "என் பேர் " + பெயர்',
+  "Function + if": 'தீ grade(m) {\n    என்றால் m >= 90 { கனல் "A" }\n    அல்லது m >= 50 { கனல் "Pass" }\n    இல்லை { கனல் "Fail" }\n}\nஓழுகு m உள் [95, 72, 30] {\n    மூச்சு m + " → " + grade(m)\n}',
+  "Loop (romanized)": 'ozhugu i ul range(1, 6) {\n    moochhu i + " × " + i + " = " + (i * i)\n}',
+  "List + lambda": 'நா எண்கள் = [5, 3, 8, 1]\nமூச்சு sort(எண்கள்)\nமூச்சு எண்கள்.map((x) => x * 2)\nமூச்சு எண்கள்.filter((x) => x > 3)\nமூச்சு "மொத்தம்: " + sum(எண்கள்)',
+  "Class": 'வகு மாணவன் {\n    தீ init(பெயர், மார்க்) {\n        self.பெயர் = பெயர்\n        self.மார்க் = மார்க்\n    }\n    தீ நிலை() {\n        என்றால் self.மார்க் >= 50 { கனல் self.பெயர் + " — தேர்ச்சி ✅" }\n        கனல் self.பெயர் + " — இன்னும் கொஞ்சம் ❌"\n    }\n}\nஓழுகு s உள் [புது மாணவன்("அருண்", 85), புது மாணவன்("ராஜா", 45)] {\n    மூச்சு s.நிலை()\n}',
+  "Error handling": 'முயற்சி {\n    நா வயது = int("abc")\n} பிழை_பிடி(e) {\n    மூச்சு "Number-ஆ மாத்த முடியல: " + e.message\n}',
+};
+
+// Pyodide runs in a worker so a runaway loop can be stopped.
+const WORKER_SRC = `
+let py = null;
+self.onmessage = async (ev) => {
+  const m = ev.data;
+  try {
+    if (m.type === "init") {
+      importScripts(m.pyodide + "pyodide.js");
+      py = await loadPyodide({ indexURL: m.pyodide });
+      py.FS.mkdirTree("/thee/thee_lang");
+      for (const f of m.files) py.FS.writeFile("/thee/thee_lang/" + f.name, f.text);
+      py.FS.writeFile("/thee/tamil_script.py", m.converter);
+      py.runPython("import sys; sys.path.insert(0, '/thee')");
+      py.runPython(\`
+import io, contextlib
+from thee_lang.lexer import TheeLexer
+from thee_lang.parser import TheeParser
+from thee_lang.interpreter import TheeInterpreter
+import tamil_script
+def thee_run(code):
+    buf = io.StringIO()
+    ok = True
+    with contextlib.redirect_stdout(buf):
+        try:
+            ast = TheeParser(TheeLexer(code).tokenize()).parse()
+            TheeInterpreter(sandbox=True).run(ast)
+        except Exception as e:
+            ok = False
+            print("தீ பிழை: " + (str(e) or type(e).__name__))
+    return ok, buf.getvalue()
+\`);
+      self.postMessage({ type: "ready" });
+    } else if (m.type === "run") {
+      const res = py.globals.get("thee_run")(m.code).toJs();
+      self.postMessage({ type: "result", ok: res[0], out: res[1] });
+    } else if (m.type === "convert") {
+      const out = py.globals.get("tamil_script").convert(m.code, m.to);
+      self.postMessage({ type: "converted", code: out });
+    }
+  } catch (e) {
+    self.postMessage({ type: "error", message: String(e) });
+  }
+};`;
+
+const $ = (id) => document.getElementById(id);
+let worker = null, sources = null, busy = false, timer = null, lastTutorCode = "";
+
+function setStatus(text, cls = "") { $("status").textContent = text; $("status").className = "status " + cls; }
+function enable(on) { for (const id of ["run", "toTamil", "toRoman"]) $(id).disabled = !on; }
+
+async function fetchSources() {
+  if (window.THEE_SOURCES) return window.THEE_SOURCES;  // single-file build (build_playground.py)
+  const files = await Promise.all(SRC_FILES.map(async (name) => {
+    const r = await fetch(BASE + name);
+    if (!r.ok) throw new Error("Could not load " + name);
+    return { name, text: await r.text() };
+  }));
+  const conv = await (await fetch(CONVERTER)).text();
+  return { files, converter: conv };
+}
+
+function startWorker() {
+  return new Promise((resolve, reject) => {
+    worker = new Worker(URL.createObjectURL(new Blob([WORKER_SRC], { type: "text/javascript" })));
+    worker.onmessage = (ev) => {
+      const m = ev.data;
+      if (m.type === "ready") { resolve(); return; }
+      onWorkerMessage(m);
+    };
+    worker.onerror = (e) => reject(e);
+    worker.postMessage({ type: "init", pyodide: PYODIDE, ...sources });
+  });
+}
+
+function onWorkerMessage(m) {
+  clearTimeout(timer); busy = false; enable(true);
+  if (m.type === "result") {
+    $("out").textContent = m.out || "(no output)";
+    $("out").className = m.ok ? "" : "err";
+    setStatus(m.ok ? "✓ Done" : "Error", m.ok ? "ok" : "err");
+  } else if (m.type === "converted") {
+    $("code").value = m.code; setStatus("Converted", "ok");
+  } else if (m.type === "error") {
+    $("out").textContent = m.message; $("out").className = "err"; setStatus("Error", "err");
+  }
+}
+
+async function send(msg) {
+  if (busy) return;
+  busy = true; enable(false);
+  timer = setTimeout(async () => {
+    worker.terminate();
+    $("out").textContent = "தீ பிழை: 10 விநாடி முடிந்தது — loop நிக்காம ஓடுதா? (timeout)";
+    $("out").className = "err"; setStatus("Restarting…");
+    await startWorker(); busy = false; enable(true); setStatus("Ready", "ok");
+  }, TIMEOUT_MS);
+  worker.postMessage(msg);
+}
+
+function run() { setStatus("Running…"); $("out").textContent = ""; send({ type: "run", code: $("code").value }); }
+
+async function askTutor() {
+  const q = $("ask").value.trim();
+  if (!q) return;
+  $("tutor").textContent = "யோசிக்கிறேன்…"; $("useCode").disabled = true;
+  try {
+    const r = await fetch("http://localhost:11434/api/chat", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "thee", stream: false, messages: [{ role: "user", content: q }] }),
+    });
+    if (!r.ok) throw new Error("Ollama said " + r.status + (r.status === 404 ? " — run: ollama pull thee" : ""));
+    const reply = (await r.json()).message.content;
+    $("tutor").textContent = reply;
+    const m = reply.match(/```(?:thee)?[ \t]*\n([\s\S]*?)```/);
+    lastTutorCode = m ? m[1].trim() : "";
+    $("useCode").disabled = !lastTutorCode;
+  } catch (e) {
+    $("tutor").textContent = "Tutor-ஐ reach பண்ண முடியல. Ollama ஓடுதா? (" + e.message + ")\nOLLAMA_ORIGINS=\"*\" ollama serve";
+  }
+}
+
+(async function init() {
+  const sel = $("examples");
+  for (const name of Object.keys(EXAMPLES)) sel.add(new Option(name, name));
+  sel.onchange = () => { $("code").value = EXAMPLES[sel.value]; };
+  $("code").value = EXAMPLES[sel.value];
+  $("run").onclick = run;
+  $("toTamil").onclick = () => send({ type: "convert", code: $("code").value, to: "tamil" });
+  $("toRoman").onclick = () => send({ type: "convert", code: $("code").value, to: "roman" });
+  $("askBtn").onclick = askTutor;
+  $("ask").addEventListener("keydown", (e) => { if (e.key === "Enter") askTutor(); });
+  $("useCode").onclick = () => { $("code").value = lastTutorCode; run(); };
+  $("code").addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); run(); }
+    if (e.key === "Tab") { e.preventDefault(); const t = e.target, s = t.selectionStart;
+      t.value = t.value.slice(0, s) + "    " + t.value.slice(t.selectionEnd); t.selectionStart = t.selectionEnd = s + 4; }
+  });
+  try {
+    sources = await fetchSources();
+    await startWorker();
+    enable(true); setStatus("Ready", "ok");
+  } catch (e) {
+    setStatus("Could not start: " + e.message, "err");
+    $("out").textContent = "Serve this folder over HTTP from the repo root, e.g.\n  python3 -m http.server 8000\nthen open http://localhost:8000/playground/";
+  }
+})();
+</script>
+</body>
+</html>
