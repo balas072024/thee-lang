@@ -16,6 +16,7 @@ def _lazy(name):
         _lazy_cache[name] = importlib.import_module(name)
     return _lazy_cache[name]
 from thee_lang.parser import *
+from thee_lang import sandbox as _sandbox
 
 # Import optimizer and LLM (graceful fallback)
 try:
@@ -156,7 +157,8 @@ class TheeAgent:
         return "\n".join(lines)
 
 class TheeInterpreter:
-    def __init__(self):
+    def __init__(self, sandbox=None):
+        self.sandbox = _sandbox.sandbox_requested() if sandbox is None else bool(sandbox)
         self.env = Environment(); self.agents = {}; self.output = []
         _register_power_builtins(self)
         _register_gpio_stubs(self)
@@ -172,6 +174,7 @@ class TheeInterpreter:
         self.structs = {}  # Week 5: struct definitions
         self._imported = set()  # Week 2: import cycle protection
         self._setup()
+        self.sandbox_blocked = _sandbox.apply_sandbox(self) if self.sandbox else []
 
     def _invoke(self, f, args):
         """Call a THEE function (dict closure) or Python callable"""
@@ -633,6 +636,12 @@ class TheeInterpreter:
     # ═══ Week 2: Import/Module ═══
     def _import(self, node):
         path = node.path
+        if self.sandbox: _sandbox.check_import(path)
+        # Python bridge: konar python.numpy / konar python.os.path as p
+        if path.startswith("python."):
+            mod = TheePythonBridge.py_import(path[len("python."):])
+            self.env.set(node.alias or path.split(".")[-1], mod)
+            return
         # Built-in modules
         builtins_mods = {
             "math": {"PI": math.pi, "E": math.e, "sqrt": math.sqrt, "sin": math.sin,
@@ -660,6 +669,7 @@ class TheeInterpreter:
             return
 
         # File-based import: import "path/to/file.thee"
+        if self.sandbox: _sandbox.check_file_import(path)
         file_path = path
         if not file_path.endswith(".thee"): file_path += ".thee"
         if not os.path.isabs(file_path):
@@ -677,7 +687,7 @@ class TheeInterpreter:
         self._imported.add(file_path)
 
         # Parse and execute the module in a new environment
-        from thee_lexer import TheeLexer
+        from thee_lang.lexer import TheeLexer
         source = open(file_path, "r", encoding="utf-8").read()
         tokens = TheeLexer(source).tokenize()
         ast = TheeParser(tokens).parse()
@@ -857,6 +867,7 @@ class TheeInterpreter:
                  "filter": lambda f: [x for x in o if self._invoke(f, [x])]}
             if m in d: return d[m]
         # Python object fallback — allows .method() on any Python object (Pipeline, modules, etc.)
+        if self.sandbox: _sandbox.check_attribute(m)
         attr = getattr(o, m, None)
         if attr is not None:
             return attr

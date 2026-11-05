@@ -70,6 +70,37 @@ na code = ai_complete("Write a function to add two numbers in THEE")
 ```
 Requires `thee_llm` module.
 
+## 🐍 Python Bridge
+
+Import any installed Python package directly:
+
+```
+konar python.statistics as st
+moochhu st.mean([1, 2, 3, 4])      // 2.5
+
+konar python.os.path               // alias defaults to the last part: path
+moochhu path.join("a", "b")
+```
+
+## 🛡️ Sandbox Mode (பாதுகாப்பு முறை)
+
+Run code you didn't write yourself — for example code from the THEE AI tutor — safely:
+
+```bash
+thee --sandbox program.thee                 # 10s timeout, 512 MB memory cap
+thee --sandbox --timeout 5 --max-mem 256 program.thee
+THEE_SANDBOX=1 thee program.thee            # same, via environment variable
+```
+
+Sandbox mode blocks files, network, shell commands, GPIO, environment variables,
+AI API calls, code generators, `py_*` helpers, `konar python.*`, `konar os/http/ai`,
+file imports, and private (`_`) attributes on Python objects. Databases are
+limited to `:memory:`. Pure THEE code — loops, functions, classes, strings,
+math, charts, in-memory data — runs normally. From Python:
+`TheeInterpreter(sandbox=True)`.
+
+Tests: `python3 -m unittest discover -s tests -v`
+
 ## 📦 Installation
 
 ```bash
