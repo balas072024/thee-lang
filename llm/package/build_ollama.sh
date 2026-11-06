@@ -16,13 +16,26 @@ command -v ollama >/dev/null || { echo "Install Ollama first: https://ollama.com
 if [ ! -d "$OUT/llama.cpp" ]; then
   git clone --depth 1 https://github.com/ggml-org/llama.cpp "$OUT/llama.cpp"
 fi
+# The converter pins older library versions, so it gets its own environment
+# (installing them into the main one breaks datasets/mlx-lm).
 REQ="$OUT/llama.cpp/requirements/requirements-convert_hf_to_gguf.txt"
-if command -v uv >/dev/null; then uv pip install --python "$(command -v python3)" -r "$REQ"
-else python3 -m pip install --quiet -r "$REQ"; fi
+CONV_PY="$OUT/.venv-convert/bin/python"
+if [ ! -x "$CONV_PY" ]; then
+  if command -v uv >/dev/null; then uv venv --python 3.12 "$OUT/.venv-convert" && uv pip install --python "$CONV_PY" -r "$REQ"
+  else python3 -m venv "$OUT/.venv-convert" && "$CONV_PY" -m pip install --quiet -r "$REQ"; fi
+fi
+
+# MLX saves extra_special_tokens as a list; the converter's transformers expects a dict.
+python3 - "$FUSED/tokenizer_config.json" <<'PY'
+import json, sys
+p = sys.argv[1]; c = json.load(open(p))
+if isinstance(c.get("extra_special_tokens"), list):
+    c.pop("extra_special_tokens"); json.dump(c, open(p, "w"), ensure_ascii=False, indent=2)
+PY
 
 # 2. HF safetensors → GGUF (f16)
 echo "▶ Converting to GGUF"
-python3 "$OUT/llama.cpp/convert_hf_to_gguf.py" "$FUSED" --outfile "$OUT/thee-f16.gguf" --outtype f16
+"$CONV_PY" "$OUT/llama.cpp/convert_hf_to_gguf.py" "$FUSED" --outfile "$OUT/thee-f16.gguf" --outtype f16
 
 # 3. Modelfile with the Tamil tutor system prompt
 python3 llm/package/make_modelfile.py --gguf thee-f16.gguf > "$OUT/Modelfile"

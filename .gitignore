@@ -19,3 +19,4 @@ llm/package/llama.cpp/
 llm/package/*.gguf
 llm/package/Modelfile
 playground/dist/
+llm/package/.venv-convert/
