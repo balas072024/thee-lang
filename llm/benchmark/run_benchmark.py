@@ -31,7 +31,7 @@ def attempt_verified(model, task, lang):
         return {"passed": False, "error": f"model error: {e}", "code": "", "seconds": time.time() - t0}
     res = run_with_tests(r["code"], task["tests"])
     return {"passed": res["passed"], "error": res["stderr"][-400:], "code": r["code"],
-            "self_verified": r["verified"], "loop_attempts": r["attempts"],
+            "self_verified": r["verified"], "ran": r.get("ran", False), "loop_attempts": r["attempts"],
             "seconds": round(time.time() - t0, 2)}
 
 
@@ -110,7 +110,9 @@ def main():
         shown = [r for r in rows if r["attempts"][0].get("self_verified")]
         wrong = sum(not r["pass1"] for r in shown)
         print(f"shown as ✅ verified: {len(shown)}/{n}; of those, wrong on hidden tests: {wrong}"
-              f" ({wrong / max(1, len(shown)):.0%}) — the rest are shown with ⚠️ and their error")
+              f" ({wrong / max(1, len(shown)):.0%})")
+        ran = [r for r in rows if not r["attempts"][0].get("self_verified") and r["attempts"][0].get("ran")]
+        print(f"shown as 🟡 runs-but-unchecked: {len(ran)}; shown as ⚠️ failing: {n - len(shown) - len(ran)}")
     print(f"details: {out}")
     return 0
 

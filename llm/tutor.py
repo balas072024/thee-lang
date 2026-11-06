@@ -7,6 +7,7 @@ For every answer:
   3. on any error or failed check, the real error goes back to the model (up to 2 retries),
   4. the reply shows the code, its *real* output from the interpreter, and a verdict:
        ✅ ஓடி சரிபார்த்தது  (ran, all checks passed)
+       🟡 ஓடுது, சரிபார்க்கல  (runs, but the model wrote no checks: logic unverified)
        ⚠️ சரிபார்க்க முடியல  (still failing after retries: shown with the error, never as working)
 Names the model uses that THEE doesn't have are caught by the interpreter ("Undefined: ...").
 
@@ -44,12 +45,14 @@ def ask(model, question, retries=2, history=None, log=None):
         res = run_thee(code)
         has_checks = bool(_ASSERT.search(code))
         ok = res["ok"] and has_checks
-        last = {"verified": ok, "code": code, "output": res["stdout"].strip(),
+        last = {"verified": ok, "ran": res["ok"], "has_checks": has_checks, "code": code, "output": res["stdout"].strip(),
                 "error": res["stderr"].strip(), "explanation": _explanation(reply), "attempts": attempt}
         if log:
             log(f"  attempt {attempt}: {'ok' if ok else (res['stderr'].splitlines() or ['no checks'])[-1][:120]}")
         if ok:
             return last
+        if res["ok"] and not has_checks and attempt > retries:
+            return last  # ran fine but the model gave no checks: shown as 🟡, not ✅
         problem = res["stderr"].strip() or "Code-ல assert_eq checks இல்ல."
         msgs += [{"role": "assistant", "content": reply},
                  {"role": "user", "content":
@@ -62,6 +65,12 @@ def render(r):
     lines = ["```thee", r["code"], "```"]
     if r["verified"]:
         lines.append(f"✅ ஓடி சரிபார்த்தது (ran in THEE, all checks passed, attempt {r['attempts']})")
+        if r["output"]:
+            lines += ["Output:", "```", r["output"], "```"]
+        if r["explanation"]:
+            lines += ["", r["explanation"]]
+    elif r.get("ran"):
+        lines.append("🟡 ஓடுது, ஆனா சரிபார்க்கல: it runs without errors, but there were no checks, so the logic is unverified.")
         if r["output"]:
             lines += ["Output:", "```", r["output"], "```"]
         if r["explanation"]:

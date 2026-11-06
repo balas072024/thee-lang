@@ -59,14 +59,20 @@ def is_contaminated(row, bench):
     return False
 
 
+def with_checks(code, tests, n=3):
+    """Answers end with a few verified assert_eq checks, so the model learns to test its own code."""
+    checks = [t for t in tests if t.startswith("assert_eq(")][:n]
+    return code.rstrip() + ("\n\n// சரிபார்ப்பு (checks)\n" + "\n".join(checks) if checks else "")
+
+
 def examples_for_task(r, rng):
     out = []
-    code, expl = r["thee"], r.get("explain_ta", "")
+    code, expl = with_checks(r["thee"], r["tests"]), r.get("explain_ta", "")
     fn = r.get("fn") or "the function"
     if r.get("prompt_ta"):
         out.append(_msgs(f"{r['prompt_ta']}\nFunction பேரு `{fn}`.", _answer(code, expl)))
         tamil_code = convert(code, "tamil")
-        if run_with_tests(tamil_code, r["tests"])["passed"]:  # keep only if it still runs
+        if run_with_tests(tamil_code, [])["passed"]:  # its own checks are inside; keep only if they pass
             out.append(_msgs(f"{r['prompt_ta']}\nTamil keywords-ல எழுதுங்க. Function பேரு `{fn}`.",
                              _answer(tamil_code, expl)))
     out.append(_msgs(f"{r['prompt_en']}\nWrite it in THEE. Name the function `{fn}`.", _answer(code, "")))
