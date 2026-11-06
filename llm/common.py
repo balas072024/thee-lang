@@ -4,7 +4,8 @@
 Model backends (pick with --model):
   ollama:<name>        local Ollama, e.g. ollama:qwen2.5-coder:7b or ollama:thee
   openai:<name>@<url>  any OpenAI-compatible server, e.g. openai:thee@http://localhost:8080/v1 (mlx_lm.server)
-  anthropic:<name>     Anthropic API (needs ANTHROPIC_API_KEY), e.g. anthropic:claude-sonnet-5-5
+  anthropic:<name>     Anthropic API (needs ANTHROPIC_API_KEY; ANTHROPIC_WORKSPACE_ID for keys not
+                       scoped to a workspace), e.g. anthropic:claude-sonnet-5-5
 """
 import json
 import os
@@ -13,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import urllib.error
 import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -65,8 +67,11 @@ def extract_code(reply):
 def _post(url, payload, headers, timeout=300):
     req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"),
                                  headers={"Content-Type": "application/json", **headers})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:  # surface the API's own error message
+        raise RuntimeError(f"HTTP {e.code}: {e.read().decode('utf-8', 'replace')[:400]}") from None
 
 
 def chat(model, messages, system=None, temperature=0.2, max_tokens=2048):
@@ -97,8 +102,10 @@ def chat(model, messages, system=None, temperature=0.2, max_tokens=2048):
         if system:
             # The system prompt (with the THEE guide) is identical on every call: cache it.
             payload["system"] = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
-        out = _post("https://api.anthropic.com/v1/messages", payload,
-                    {"x-api-key": key, "anthropic-version": "2023-06-01"})
+        headers = {"x-api-key": key, "anthropic-version": "2023-06-01"}
+        if os.environ.get("ANTHROPIC_WORKSPACE_ID"):  # keys not scoped to a workspace need this
+            headers["anthropic-workspace-id"] = os.environ["ANTHROPIC_WORKSPACE_ID"]
+        out = _post("https://api.anthropic.com/v1/messages", payload, headers)
         _add_cost(name, out.get("usage", {}))
         return "".join(b.get("text", "") for b in out["content"])
     raise ValueError(f"Unknown model backend '{kind}'. Use ollama:, openai: or anthropic:")
