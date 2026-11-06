@@ -172,7 +172,7 @@ def scene_demo(n, total, demo, stage):
                         "failed": (ERR, "⚠️ ஓடல (error)"), "correct": (OK, "✅ சரியான பதில்"),
                         "wrong": (ERR, "❌ தப்பான பதில்")}[v]
         panel(d, (780, 182, W - 48, 400), "THEE interpreter-ல ஓட்டினது", MUTED)
-        draw_line(d, (802, 216), label.replace("✅ ", "").replace("🟡 ", "").replace("⚠️ ", ""), 24, color)
+        draw_line(d, (802, 216), label.split(" ", 1)[1], 24, color)  # emoji glyphs don't render; the dot carries colour
         d.ellipse((W - 92, 220, W - 72, 240), fill=color)
         if demo.get("probe"):
             draw_line(d, (802, 252), demo["probe"], 18, MUTED, base="mono")
@@ -191,7 +191,13 @@ def scene_demo(n, total, demo, stage):
     if stage >= 4 and demo.get("explanation"):
         panel(d, (780, 416, W - 48, 650), "விளக்கம் (explanation)")
         y = 450
-        for ln in wrap(demo["explanation"], 19, W - 48 - 830 - 10)[:6]:
+        shown = []
+        for ln in wrap(demo["explanation"], 19, W - 48 - 830 - 10):
+            if ln in shown:  # the 1.5B model sometimes repeats a phrase; show it once
+                shown.append("…")
+                break
+            shown.append(ln)
+        for ln in shown[:6]:
             draw_line(d, (802, y), ln, 19, FG)
             y += 30
     return img
@@ -228,7 +234,8 @@ def scene_score(scores):
     img, d = canvas()
     header(d, "Benchmark")
     draw_line(d, (48, 92), "109 தமிழ் tasks — hidden tests-ல pass ஆனது", 32, FG)
-    x0, y0, bw, gap, hmax = 160, 610, 220, 110, 380
+    bw, gap, y0, hmax = 220, 110, 610, 380
+    x0 = (W - (len(scores) * bw + (len(scores) - 1) * gap)) // 2
     top = max(v for _, v, _ in scores) or 1
     for i, (name, v, color) in enumerate(scores):
         x = x0 + i * (bw + gap)
