@@ -368,6 +368,8 @@ class TheeParser:
             if self.match(TokenType.AS): self.advance(); alias = self.expect(TokenType.IDENTIFIER).value
             return ImportStatement(path=path, alias=alias, line=t.line, column=t.column)
         mod = self.expect(TokenType.IDENTIFIER).value; alias = None
+        while self.match(TokenType.DOT):  # dotted modules: konar python.numpy
+            self.advance(); mod += "." + self.expect(TokenType.IDENTIFIER).value
         if self.match(TokenType.AS): self.advance(); alias = self.expect(TokenType.IDENTIFIER).value
         return ImportStatement(path=mod, alias=alias, line=t.line, column=t.column)
 

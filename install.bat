@@ -64,7 +64,7 @@ copy /Y "%SRC%bin\thee_cli.py" "%INSTALL_DIR%\bin\" >nul 2>&1
 
 REM Copy examples
 if not exist "%INSTALL_DIR%\examples" mkdir "%INSTALL_DIR%\examples" 2>nul
-copy /Y "%SRC%examples\*.thee" "%INSTALL_DIR%\examples\" >nul 2>&1
+copy /Y "%SRC%examples\*.th" "%INSTALL_DIR%\examples\" >nul 2>&1
 
 echo   [OK] Files installed
 
@@ -146,7 +146,7 @@ echo.
 echo  Usage (open a NEW terminal):
 echo.
 echo    thee                          Start REPL (interactive mode)
-echo    thee hello.thee               Run a .thee file
+echo    thee hello.th                 Run a .th file
 echo    thee -e "moochhu 42"          Run inline code
 echo    thee -v                       Show version
 echo.
@@ -154,7 +154,7 @@ echo  Quick start:
 echo.
 echo    thee -e "na name = \"Bala\"; moochhu \"Hello \" + name"
 echo    thee -e "ozhugu for i ul range(1,6) { moochhu i * i }"
-echo    thee %INSTALL_DIR%\examples\hello.thee
+echo    thee %INSTALL_DIR%\examples\hello.th
 echo.
 echo  Examples folder: %INSTALL_DIR%\examples
 echo.

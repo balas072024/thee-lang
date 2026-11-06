@@ -16,6 +16,7 @@ def _lazy(name):
         _lazy_cache[name] = importlib.import_module(name)
     return _lazy_cache[name]
 from thee_lang.parser import *
+from thee_lang import sandbox as _sandbox
 
 # Import optimizer and LLM (graceful fallback)
 try:
@@ -156,7 +157,8 @@ class TheeAgent:
         return "\n".join(lines)
 
 class TheeInterpreter:
-    def __init__(self):
+    def __init__(self, sandbox=None):
+        self.sandbox = _sandbox.sandbox_requested() if sandbox is None else bool(sandbox)
         self.env = Environment(); self.agents = {}; self.output = []
         _register_power_builtins(self)
         _register_gpio_stubs(self)
@@ -172,6 +174,7 @@ class TheeInterpreter:
         self.structs = {}  # Week 5: struct definitions
         self._imported = set()  # Week 2: import cycle protection
         self._setup()
+        self.sandbox_blocked = _sandbox.apply_sandbox(self) if self.sandbox else []
 
     def _invoke(self, f, args):
         """Call a THEE function (dict closure) or Python callable"""
@@ -633,6 +636,12 @@ class TheeInterpreter:
     # ═══ Week 2: Import/Module ═══
     def _import(self, node):
         path = node.path
+        if self.sandbox: _sandbox.check_import(path)
+        # Python bridge: konar python.numpy / konar python.os.path as p
+        if path.startswith("python."):
+            mod = TheePythonBridge.py_import(path[len("python."):])
+            self.env.set(node.alias or path.split(".")[-1], mod)
+            return
         # Built-in modules
         builtins_mods = {
             "math": {"PI": math.pi, "E": math.e, "sqrt": math.sqrt, "sin": math.sin,
@@ -659,15 +668,19 @@ class TheeInterpreter:
                 for k, v in mod.items(): self.env.set(k, v)
             return
 
-        # File-based import: import "path/to/file.thee"
-        file_path = path
-        if not file_path.endswith(".thee"): file_path += ".thee"
-        if not os.path.isabs(file_path):
-            # Look relative to current file, then cwd
-            for base in [".", os.path.dirname(sys.argv[-1]) if sys.argv else "."]:
-                candidate = os.path.join(base, file_path)
+        # File-based import: import "path/to/file.th"
+        if self.sandbox: _sandbox.check_file_import(path)
+        # .th is the main extension; .thee still works
+        names = [path] if path.endswith((".th", ".thee")) else [path + ".th", path + ".thee"]
+        file_path = names[0]
+        found = False
+        for name in names:
+            bases = [""] if os.path.isabs(name) else [".", os.path.dirname(sys.argv[-1]) if sys.argv else "."]
+            for base in bases:
+                candidate = os.path.join(base, name) if base else name
                 if os.path.exists(candidate):
-                    file_path = candidate; break
+                    file_path = candidate; found = True; break
+            if found: break
 
         if not os.path.exists(file_path):
             raise TheeRuntimeError(f"Module not found: '{path}'", node)
@@ -677,7 +690,7 @@ class TheeInterpreter:
         self._imported.add(file_path)
 
         # Parse and execute the module in a new environment
-        from thee_lexer import TheeLexer
+        from thee_lang.lexer import TheeLexer
         source = open(file_path, "r", encoding="utf-8").read()
         tokens = TheeLexer(source).tokenize()
         ast = TheeParser(tokens).parse()
@@ -857,6 +870,7 @@ class TheeInterpreter:
                  "filter": lambda f: [x for x in o if self._invoke(f, [x])]}
             if m in d: return d[m]
         # Python object fallback — allows .method() on any Python object (Pipeline, modules, etc.)
+        if self.sandbox: _sandbox.check_attribute(m)
         attr = getattr(o, m, None)
         if attr is not None:
             return attr
@@ -878,7 +892,8 @@ class TheeInterpreter:
         else:
             for c, b in n.elif_clauses:
                 if self._truthy(self.evaluate(c)):
-                    for s in b: self.execute(s); return
+                    for s in b: self.execute(s)
+                    return
             for s in n.else_body: self.execute(s)
 
     def _rep_times(self, n):
@@ -2285,7 +2300,7 @@ def _register_v5_builtins(interp):
     env.set("optimize", lambda name: TheeOptimizer._compiled.get(name, None))
     
     # Docker generation
-    def _docker_gen(app_file="main.thee", port=8000):
+    def _docker_gen(app_file="main.th", port=8000):
         return f"""FROM python:3.12-slim
 WORKDIR /app
 COPY thee /usr/local/bin/thee
