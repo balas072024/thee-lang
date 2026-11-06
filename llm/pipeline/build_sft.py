@@ -65,9 +65,13 @@ def with_checks(code, tests, n=3):
     return code.rstrip() + ("\n\n// சரிபார்ப்பு (checks)\n" + "\n".join(checks) if checks else "")
 
 
+CHECKS = True  # set by --no-checks
+
+
 def examples_for_task(r, rng):
     out = []
-    code, expl = with_checks(r["thee"], r["tests"]), r.get("explain_ta", "")
+    code = with_checks(r["thee"], r["tests"]) if CHECKS else r["thee"]
+    expl = r.get("explain_ta", "")
     fn = r.get("fn") or "the function"
     if r.get("prompt_ta"):
         out.append(_msgs(f"{r['prompt_ta']}\nFunction பேரு `{fn}`.", _answer(code, expl)))
@@ -94,7 +98,12 @@ def main():
     ap.add_argument("--valid-frac", type=float, default=0.05)
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--lesson-repeat", type=int, default=3, help="lessons are few, so repeat them")
+    ap.add_argument("--no-checks", action="store_true",
+                    help="answers without the assert_eq self-checks (v1 style; v2 with checks regressed)")
+    ap.add_argument("--out-dir", default="", help="write train/valid here (default: --data-dir)")
     a = ap.parse_args()
+    global CHECKS
+    CHECKS = not a.no_checks
     rng = random.Random(a.seed)
     bench = load_benchmark()
 
@@ -124,11 +133,13 @@ def main():
         valid = lesson_rows[:3] or train[:1]
     rng.shuffle(train)
 
-    write_jsonl(os.path.join(a.data_dir, "train.jsonl"), train)
-    write_jsonl(os.path.join(a.data_dir, "valid.jsonl"), valid)
+    out_dir = a.out_dir or a.data_dir
+    write_jsonl(os.path.join(out_dir, "train.jsonl"), train)
+    write_jsonl(os.path.join(out_dir, "valid.jsonl"), valid)
     print(f"verified tasks: {len(verified)} ({len(verified) - len(kept)} removed as benchmark overlap)")
     print(f"repairs: {len(repairs)}, lessons: {len(lessons)} (x{a.lesson_repeat})")
-    print(f"train: {len(train)} examples, valid: {len(valid)} → {a.data_dir}")
+    print(f"train: {len(train)} examples, valid: {len(valid)} → {out_dir}"
+          + ("" if CHECKS else "  (no self-checks)"))
 
 
 if __name__ == "__main__":

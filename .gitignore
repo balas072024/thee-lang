@@ -21,3 +21,7 @@ llm/package/Modelfile
 playground/dist/
 llm/package/.venv-convert/
 llm/demo/out/
+llm/train/adapters-*/
+llm/train/fused-*/
+llm/train/gated_run.yaml
+llm/data/v*/
