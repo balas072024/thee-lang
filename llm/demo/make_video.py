@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Render the THEE demo video from demo.json (real captured answers) with Tamil narration.
 
-Each scene = one still frame + its narration (macOS `say -v Vani`, the Tamil voice), encoded as
+Each scene = one still frame + its narration (Microsoft Neural Tamil via edge-tts; `pip install edge-tts`), encoded as
 its own clip with identical settings, then joined with ffmpeg's concat demuxer.
 
   python3 llm/demo/make_video.py                  # → llm/demo/out/thee-demo.mp4
@@ -261,13 +261,23 @@ def scene_end():
 
 # ── narration + encoding ─────────────────────────────────────────────────
 
+VOICE = "ta-IN-PallaviNeural"  # set by --voice; "vani" = the macOS system voice
+
+
 def tts(text, path):
+    """Tamil narration. Default: Microsoft Neural Tamil via edge-tts (free, natural, handles the
+    English words mixed into spoken Tamil). Fallback: macOS `say -v Vani`."""
     if not text:
         return 0.0
-    aiff = path + ".aiff"
-    subprocess.run(["say", "-v", "Vani", "-r", "165", "-o", aiff, text], check=True)
-    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", aiff, "-ar", "48000", "-ac", "2", path], check=True)
-    os.remove(aiff)
+    raw = path + ".src"
+    if VOICE.lower() != "vani":
+        subprocess.run([sys.executable, "-m", "edge_tts", "--voice", VOICE, "--rate=-5%",
+                        "--text", text, "--write-media", raw], check=True)
+    else:
+        subprocess.run(["say", "-v", "Vani", "-r", "165", "-o", raw + ".aiff", text], check=True)
+        os.replace(raw + ".aiff", raw)
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", raw, "-ar", "48000", "-ac", "2", path], check=True)
+    os.remove(raw)
     out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path],
                          capture_output=True, text=True, check=True)
     return float(out.stdout.strip())
@@ -326,7 +336,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", default=os.path.join(HERE, "demo.json"))
     ap.add_argument("--frames-only", action="store_true")
+    ap.add_argument("--voice", default="ta-IN-PallaviNeural",
+                    help="ta-IN-PallaviNeural (female), ta-IN-ValluvarNeural (male), or vani (macOS)")
     a = ap.parse_args()
+    global VOICE
+    VOICE = a.voice
     data = json.load(open(a.data, encoding="utf-8"))
     os.makedirs(OUT, exist_ok=True)
     scenes, passed = build_scenes(data)
