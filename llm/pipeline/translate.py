@@ -11,7 +11,8 @@ For every Python task:
      short Tamil explanation.
 
 Sources:
-  --source mbpp            MBPP (needs `pip install datasets`; run on your Mac)
+  --source mbpp            MBPP sanitized, 427 tasks (needs `pip install datasets`)
+  --source mbpp-full       all 974 MBPP tasks
   --source humaneval       OpenAI HumanEval (same)
   --source file.jsonl      your own rows: {"id", "text", "code", "tests": ["assert f(1) == 2", ...]}
 
@@ -39,17 +40,19 @@ _lock = threading.Lock()
 # ── sources ──────────────────────────────────────────────────────────────
 
 def load_source(source, limit=0):
-    if source in ("mbpp", "humaneval"):
+    if source in ("mbpp", "mbpp-full", "humaneval"):
         try:
             from datasets import load_dataset
         except ImportError:
             sys.exit("Install the datasets package first:  pip install datasets")
         rows = []
-        if source == "mbpp":
-            ds = load_dataset("google-research-datasets/mbpp", "sanitized")
+        if source in ("mbpp", "mbpp-full"):
+            # sanitized: 427 hand-checked tasks; full: all 974 (same ids, so a resume skips repeats)
+            cfg, text_key = ("sanitized", "prompt") if source == "mbpp" else ("full", "text")
+            ds = load_dataset("google-research-datasets/mbpp", cfg)
             for split in ("train", "validation", "test", "prompt"):
                 for r in ds[split]:
-                    rows.append({"id": f"mbpp-{r['task_id']}", "text": r["prompt"],
+                    rows.append({"id": f"mbpp-{r['task_id']}", "text": r[text_key],
                                  "code": r["code"], "tests": list(r["test_list"])})
         else:
             ds = load_dataset("openai/openai_humaneval")["test"]
@@ -242,7 +245,7 @@ def main():
                 task_ta, explain_ta = tamil_text(a.tamil_model or a.model, row, got["code"])
             except Exception as e:  # a slow/failed Tamil reply must not lose the verified code
                 print(f"  ! {row['id']}: Tamil text skipped ({e})", flush=True)
-        out = {"id": row["id"], "source": a.source if a.source in ("mbpp", "humaneval") else "file",
+        out = {"id": row["id"], "source": a.source if a.source in ("mbpp", "mbpp-full", "humaneval") else "file",
                "fn": _fn_name(got["code"]), "prompt_en": row["text"].strip(), "prompt_ta": task_ta,
                "python": row["code"], "thee": got["code"], "tests": got["tests"],
                "tests_from": got["tests_from"], "attempts": got["attempts"], "explain_ta": explain_ta}
