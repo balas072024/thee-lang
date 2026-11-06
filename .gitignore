@@ -20,3 +20,4 @@ llm/package/*.gguf
 llm/package/Modelfile
 playground/dist/
 llm/package/.venv-convert/
+llm/demo/out/
