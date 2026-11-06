@@ -169,16 +169,24 @@ def scene_demo(n, total, demo, stage):
     if stage >= 3:
         v = demo["verdict"]
         color, label = {"verified": (OK, "✅ ஓடி சரிபார்த்தது"), "ran": (WARN, "🟡 ஓடுது, சரிபார்க்கல"),
-                        "failed": (ERR, "⚠️ சரிபார்க்க முடியல")}[v]
+                        "failed": (ERR, "⚠️ ஓடல (error)"), "correct": (OK, "✅ சரியான பதில்"),
+                        "wrong": (ERR, "❌ தப்பான பதில்")}[v]
         panel(d, (780, 182, W - 48, 400), "THEE interpreter-ல ஓட்டினது", MUTED)
         draw_line(d, (802, 216), label.replace("✅ ", "").replace("🟡 ", "").replace("⚠️ ", ""), 24, color)
         d.ellipse((W - 92, 220, W - 72, 240), fill=color)
-        draw_line(d, (802, 248), f"attempt {demo['attempts']}", 18, MUTED)
+        if demo.get("probe"):
+            draw_line(d, (802, 252), demo["probe"], 18, MUTED, base="mono")
+            draw_line(d, (802, 282), "எதிர்பார்த்தது: " + demo["expected"], 18, MUTED)
+            y = 316
+        else:
+            draw_line(d, (802, 248), f"attempt {demo['attempts']}", 18, MUTED)
+            y = 282
         body = demo["output"] if v != "failed" else (demo["error"].splitlines() or [""])[-1].replace("தீ பிழை: ", "")
-        y = 282
+        if demo.get("probe") and v != "failed":
+            body = "வந்தது: " + (body.splitlines()[-1] if body else "(no output)")
         for ln in (body or "(no output)").splitlines()[:4]:
             for wl in wrap(ln, 20, W - 48 - 830, "mono")[:2]:
-                draw_line(d, (802, y), wl, 20, FG if v != "failed" else ERR, base="mono")
+                draw_line(d, (802, y), wl, 20, color if v in ("correct", "wrong", "failed") else FG, base="mono")
                 y += 28
     if stage >= 4 and demo.get("explanation"):
         panel(d, (780, 416, W - 48, 650), "விளக்கம் (explanation)")
@@ -276,10 +284,10 @@ def encode(png, wav, seconds, out):
 
 def build_scenes(data):
     demos = data["demos"]
-    passed = sum(x["verdict"] == "verified" for x in demos)
+    passed = sum(x["verdict"] in ("verified", "correct") for x in demos)
     v2 = data.get("score_v2")
     stats = ["Qwen2.5-Coder 1.5B · தமிழ் data-ல fine-tune · Ollama-ல 986 MB",
-             "எழுதுற எல்லா code-ஐயும் முதல்ல ஓட்டி பார்த்துட்டு தான் காட்டும்"]
+             "இங்க வர்ற எல்லா பதிலும் model-ஓட உண்மையான பதில், உண்மையா ஓட்டினது"]
     scenes = [(scene_title(stats),
                "வணக்கம்! இது தீ. தமிழ்ல programming கத்துக்க ஒரு சின்ன AI tutor. இது உங்க computer-லயே, internet இல்லாம ஓடும்.", 2.5)]
     say_q = "கேள்வி தமிழ்ல கேக்கலாம்."
@@ -287,7 +295,9 @@ def build_scenes(data):
         v = demo["verdict"]
         say_v = {"verified": "Code-ஐ ஓட்டி பார்த்தோம். எல்லா check-உம் pass ஆச்சு.",
                  "ran": "Code ஓடுது, ஆனா check இல்லாததால logic சரிபார்க்கல.",
-                 "failed": "இந்த தடவை code fail ஆச்சு. அத மறைக்காம, error-ஓட காட்டுது."}[v]
+                 "failed": "இந்த தடவை code-ல error. அத மறைக்காம காட்டுறோம்.",
+                 "correct": "THEE-ல ஓட்டி பார்த்தோம். பதில் சரி.",
+                 "wrong": "ஓடுது, ஆனா பதில் தப்பு. இன்னும் training வேணும்."}[v]
         scenes += [(scene_demo(i, len(demos), demo, 1), say_q if i == 1 else "", 2.5),
                    (scene_demo(i, len(demos), demo, 2), "Model THEE code எழுதுது." if i == 1 else "", 3.0),
                    (scene_demo(i, len(demos), demo, 3), say_v, 2.5),
@@ -300,7 +310,7 @@ def build_scenes(data):
     if v2 is not None:
         scores.append(("v2", v2, ACCENT))
     scenes.append((scene_score(scores),
-                   "Benchmark-ல, base model ஆறு புள்ளி நாலு சதவீதம். எங்க model அதை விட நிறைய முன்னேறியிருக்கு.", 3.0))
+                   "Benchmark-ல base model ஆறு சதவீதம், எங்க model பதினாறு சதவீதம். இன்னும் நிறைய data-ஓட அடுத்த version வருது.", 3.0))
     scenes.append((scene_end(), "Ollama-ல, ollama run thee. நன்றி!", 2.5))
     return scenes, passed
 
