@@ -64,14 +64,26 @@ def extract_code(reply):
 
 # ── Calling a model ──────────────────────────────────────────────────────
 
-def _post(url, payload, headers, timeout=300):
-    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"),
-                                 headers={"Content-Type": "application/json", **headers})
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            return json.loads(r.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:  # surface the API's own error message
-        raise RuntimeError(f"HTTP {e.code}: {e.read().decode('utf-8', 'replace')[:400]}") from None
+def _post(url, payload, headers, timeout=300, tries=4):
+    """POST JSON. Retries dropped connections and overload/rate-limit replies (429, 5xx) with backoff."""
+    import time
+    data = json.dumps(payload).encode("utf-8")
+    for attempt in range(tries):
+        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json", **headers})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:  # surface the API's own error message
+            body = e.read().decode("utf-8", "replace")[:400]
+            if e.code in (429, 500, 502, 503, 529) and attempt < tries - 1:
+                time.sleep(2 ** attempt * 3)
+                continue
+            raise RuntimeError(f"HTTP {e.code}: {body}") from None
+        except (ConnectionError, TimeoutError, urllib.error.URLError, OSError) as e:
+            if attempt < tries - 1:
+                time.sleep(2 ** attempt * 2)
+                continue
+            raise RuntimeError(f"connection failed after {tries} tries: {e}") from None
 
 
 def chat(model, messages, system=None, temperature=0.2, max_tokens=2048):
