@@ -90,34 +90,43 @@ def _kodcode_asserts(test_code):
 
 def load_kodcode(source, limit=0, seed=7):
     """--source kodcode[:N]  — N easy/medium single-function tasks (default 3000) from KodCode-V1,
-    each with >=2 tests our converter can turn into THEE assert_eq lines."""
+    each with >=2 tests our converter can turn into THEE assert_eq lines.
+    Reads the dataset's parquet files directly (faster than streaming, avoids throttling)."""
     import ast
     import random
     try:
-        from datasets import load_dataset
+        import pyarrow.parquet as pq
+        from huggingface_hub import HfApi, hf_hub_download
     except ImportError:
         sys.exit("Install the datasets package first:  pip install datasets")
     want = int(source.split(":", 1)[1]) if ":" in source else 3000
     if limit:
         want = min(want, limit)
-    ds = load_dataset("KodCode/KodCode-V1", split="train", streaming=True)
+    repo = "KodCode/KodCode-V1"
+    files = sorted(f for f in HfApi().list_repo_files(repo, repo_type="dataset") if f.endswith(".parquet"))
+    random.Random(seed).shuffle(files)  # mix subsets: each file holds a different slice
+    cols = ["question_id", "question", "solution", "test", "test_info", "style", "subset", "gpt_difficulty"]
     pool, seen = [], 0
-    for r in ds:
-        seen += 1
-        if (r["style"] != "instruct" or r["subset"] not in KODCODE_SUBSETS
-                or r["gpt_difficulty"] not in ("easy", "medium") or "import " in r["solution"]):
-            continue
-        try:
-            if len(ast.literal_eval(r["test_info"])) != 1:  # one function per task
+    for f in files:
+        for r in pq.read_table(hf_hub_download(repo, f, repo_type="dataset"), columns=cols).to_pylist():
+            seen += 1
+            if (r["style"] != "instruct" or r["subset"] not in KODCODE_SUBSETS
+                    or r["gpt_difficulty"] not in ("easy", "medium") or "import " in r["solution"]):
                 continue
-        except (ValueError, SyntaxError):
-            continue
-        tests = _kodcode_asserts(r["test"])
-        if len(tests) < 2:
-            continue
-        pool.append({"id": f"kodcode-{r['question_id']}", "text": r["question"],
-                     "code": r["solution"], "tests": tests[:8]})
-        if len(pool) >= want * 4:  # enough to sample from without reading all 447K
+            info = r["test_info"]
+            if isinstance(info, str):  # a string in some exports, a list in the parquet files
+                try:
+                    info = ast.literal_eval(info)
+                except (ValueError, SyntaxError):
+                    continue
+            if not isinstance(info, list) or len(info) != 1:  # one function per task
+                continue
+            tests = _kodcode_asserts(r["test"])
+            if len(tests) < 2:
+                continue
+            pool.append({"id": f"kodcode-{r['question_id']}", "text": r["question"],
+                         "code": r["solution"], "tests": tests[:8]})
+        if len(pool) >= want * 3:
             break
     random.Random(seed).shuffle(pool)
     print(f"KodCode: scanned {seen}, {len(pool)} usable, taking {min(want, len(pool))}")
