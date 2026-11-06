@@ -35,7 +35,7 @@ python3 -m mlx_lm.server --model "$FUSED" --port 8080 >/tmp/thee_mlx_server.log 
 SERVER=$!
 trap 'kill $SERVER 2>/dev/null || true' EXIT
 for _ in $(seq 1 60); do curl -s localhost:8080/v1/models >/dev/null && break; sleep 2; done
-python3 llm/benchmark/run_benchmark.py --model "openai:$FUSED@http://localhost:8080/v1" --workers 1
-python3 llm/benchmark/run_benchmark.py --model "openai:$FUSED@http://localhost:8080/v1" --workers 1 --lang en
+python3 llm/benchmark/run_benchmark.py --model "openai:$FUSED@http://localhost:8080/v1" --workers 1 --system tutor
+python3 llm/benchmark/run_benchmark.py --model "openai:$FUSED@http://localhost:8080/v1" --workers 1 --lang en --system tutor
 
 echo "✓ Done. Next: bash llm/package/build_ollama.sh"

@@ -33,7 +33,7 @@ echo "▶ Creating Ollama model 'thee' ($QUANT)"
 ollama run thee "ஒரு number இரட்டைப்படையா-ன்னு check பண்ற function எழுதுங்க" || true
 
 # 5. Score the packaged model
-python3 llm/benchmark/run_benchmark.py --model ollama:thee
+python3 llm/benchmark/run_benchmark.py --model ollama:thee --system none
 
 # 6. Optional: publish so anyone can `ollama pull <you>/thee`
 if [ -n "${OLLAMA_USER:-}" ]; then

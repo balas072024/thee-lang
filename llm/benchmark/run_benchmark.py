@@ -18,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from common import chat, extract_code, read_jsonl, run_with_tests, write_jsonl  # noqa: E402
-from prompts import SYSTEM_CODER, reference_text, task_prompt  # noqa: E402
+from prompts import SYSTEM_CODER, SYSTEM_TUTOR, reference_text, task_prompt  # noqa: E402
 
 
 def attempt(model, task, lang, system, temperature):
@@ -40,6 +40,8 @@ def main():
     ap.add_argument("--tasks", default=os.path.join(HERE, "tasks.jsonl"))
     ap.add_argument("--lang", choices=["ta", "en"], default="ta", help="prompt language (default Tamil)")
     ap.add_argument("--with-reference", action="store_true", help="put the THEE language guide in the system prompt")
+    ap.add_argument("--system", choices=["coder", "tutor", "none"], default="coder",
+                    help="system prompt: coder (base models), tutor (THEE fine-tunes, as trained), none (Ollama model's own)")
     ap.add_argument("--samples", type=int, default=1, help="attempts per task (pass@k)")
     ap.add_argument("--temperature", type=float, default=0.2)
     ap.add_argument("--limit", type=int, default=0)
@@ -58,7 +60,10 @@ def main():
     if not a.model:
         ap.error("--model is required (or use --check-references)")
 
-    system = SYSTEM_CODER + ("\n\n" + reference_text() if a.with_reference else "")
+    system = {"coder": SYSTEM_CODER, "tutor": SYSTEM_TUTOR, "none": ""}[a.system]
+    if a.with_reference:
+        system = (system + "\n\n" + reference_text()).strip()
+    system = system or None
     temp = a.temperature if a.samples == 1 else max(a.temperature, 0.6)
 
     def run_task(t):
@@ -76,7 +81,8 @@ def main():
     n = len(rows)
     p1 = sum(r["pass1"] for r in rows) / n
     pk = sum(r["passk"] for r in rows) / n
-    tag = re.sub(r"[^A-Za-z0-9._-]+", "_", a.model) + f"_{a.lang}" + ("_ref" if a.with_reference else "")
+    tag = (re.sub(r"[^A-Za-z0-9._-]+", "_", a.model) + f"_{a.lang}" + ("_ref" if a.with_reference else "")
+           + ("" if a.system == "coder" else f"_{a.system}"))
     out = os.path.join(HERE, "results", f"{tag}.jsonl")
     write_jsonl(out, rows)
     print(f"\n{a.model} ({a.lang}{', with guide' if a.with_reference else ''}): "
