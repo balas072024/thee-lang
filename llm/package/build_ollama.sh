@@ -37,12 +37,21 @@ PY
 echo "▶ Converting to GGUF"
 "$CONV_PY" "$OUT/llama.cpp/convert_hf_to_gguf.py" "$FUSED" --outfile "$OUT/thee-f16.gguf" --outtype f16
 
-# 3. Modelfile with the Tamil tutor system prompt
-python3 llm/package/make_modelfile.py --gguf thee-f16.gguf > "$OUT/Modelfile"
+# 3. Quantize (Ollama can't quantize a GGUF import, so llama.cpp does it: brew install llama.cpp)
+GGUF=thee-f16.gguf
+if command -v llama-quantize >/dev/null; then
+  Q=$(echo "$QUANT" | tr '[:lower:]' '[:upper:]')
+  echo "▶ Quantizing to $Q"
+  llama-quantize "$OUT/thee-f16.gguf" "$OUT/thee-$QUANT.gguf" "$Q"
+  GGUF=thee-$QUANT.gguf
+else
+  echo "llama-quantize not found (brew install llama.cpp) — using the unquantized f16 model"
+fi
 
-# 4. Create the Ollama model; Ollama does the quantization itself
-echo "▶ Creating Ollama model 'thee' ($QUANT)"
-(cd "$OUT" && ollama create thee -f Modelfile --quantize "$QUANT")
+# 4. Modelfile with the Tamil tutor system prompt, then the Ollama model
+python3 llm/package/make_modelfile.py --gguf "$GGUF" > "$OUT/Modelfile"
+echo "▶ Creating Ollama model 'thee' from $GGUF"
+(cd "$OUT" && ollama create thee -f Modelfile)
 ollama run thee "ஒரு number இரட்டைப்படையா-ன்னு check பண்ற function எழுதுங்க" || true
 
 # 5. Score the packaged model
