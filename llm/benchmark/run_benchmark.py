@@ -21,6 +21,20 @@ from common import chat, extract_code, read_jsonl, run_with_tests, write_jsonl  
 from prompts import SYSTEM_CODER, SYSTEM_TUTOR, reference_text, task_prompt  # noqa: E402
 
 
+def attempt_verified(model, task, lang):
+    """Tutor loop: the model only sees its own checks and real errors, never the hidden tests."""
+    from tutor import ask
+    t0 = time.time()
+    try:
+        r = ask(model, task_prompt(task, lang))
+    except Exception as e:
+        return {"passed": False, "error": f"model error: {e}", "code": "", "seconds": time.time() - t0}
+    res = run_with_tests(r["code"], task["tests"])
+    return {"passed": res["passed"], "error": res["stderr"][-400:], "code": r["code"],
+            "self_verified": r["verified"], "loop_attempts": r["attempts"],
+            "seconds": round(time.time() - t0, 2)}
+
+
 def attempt(model, task, lang, system, temperature):
     t0 = time.time()
     try:
@@ -47,6 +61,8 @@ def main():
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--check-references", action="store_true")
+    ap.add_argument("--verify", action="store_true",
+                    help="use the tutor's run-check-fix loop (tutor prompt, up to 2 retries on its own checks)")
     a = ap.parse_args()
 
     tasks = read_jsonl(a.tasks)
@@ -67,7 +83,10 @@ def main():
     temp = a.temperature if a.samples == 1 else max(a.temperature, 0.6)
 
     def run_task(t):
-        tries = [attempt(a.model, t, a.lang, system, temp) for _ in range(a.samples)]
+        if a.verify:
+            tries = [attempt_verified(a.model, t, a.lang) for _ in range(a.samples)]
+        else:
+            tries = [attempt(a.model, t, a.lang, system, temp) for _ in range(a.samples)]
         return {"id": t["id"], "fn": t["fn"], "pass1": tries[0]["passed"],
                 "passk": any(x["passed"] for x in tries), "attempts": tries}
 
@@ -82,11 +101,16 @@ def main():
     p1 = sum(r["pass1"] for r in rows) / n
     pk = sum(r["passk"] for r in rows) / n
     tag = (re.sub(r"[^A-Za-z0-9._-]+", "_", a.model) + f"_{a.lang}" + ("_ref" if a.with_reference else "")
-           + ("" if a.system == "coder" else f"_{a.system}"))
+           + ("" if a.system == "coder" else f"_{a.system}") + ("_verify" if a.verify else ""))
     out = os.path.join(HERE, "results", f"{tag}.jsonl")
     write_jsonl(out, rows)
     print(f"\n{a.model} ({a.lang}{', with guide' if a.with_reference else ''}): "
           f"pass@1 = {p1:.1%}" + (f", pass@{a.samples} = {pk:.1%}" if a.samples > 1 else ""))
+    if a.verify:
+        shown = [r for r in rows if r["attempts"][0].get("self_verified")]
+        wrong = sum(not r["pass1"] for r in shown)
+        print(f"shown as ✅ verified: {len(shown)}/{n}; of those, wrong on hidden tests: {wrong}"
+              f" ({wrong / max(1, len(shown)):.0%}) — the rest are shown with ⚠️ and their error")
     print(f"details: {out}")
     return 0
 
