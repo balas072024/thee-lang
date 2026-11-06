@@ -16,7 +16,9 @@ command -v ollama >/dev/null || { echo "Install Ollama first: https://ollama.com
 if [ ! -d "$OUT/llama.cpp" ]; then
   git clone --depth 1 https://github.com/ggml-org/llama.cpp "$OUT/llama.cpp"
 fi
-python3 -m pip install --quiet -r "$OUT/llama.cpp/requirements/requirements-convert_hf_to_gguf.txt"
+REQ="$OUT/llama.cpp/requirements/requirements-convert_hf_to_gguf.txt"
+if command -v uv >/dev/null; then uv pip install --python "$(command -v python3)" -r "$REQ"
+else python3 -m pip install --quiet -r "$REQ"; fi
 
 # 2. HF safetensors → GGUF (f16)
 echo "▶ Converting to GGUF"

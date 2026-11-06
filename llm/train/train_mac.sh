@@ -9,7 +9,11 @@ BASE=$(grep '^model:' llm/train/mlx_lora.yaml | sed 's/model: *"\(.*\)"/\1/')
 ADAPTERS=llm/train/adapters
 FUSED=llm/train/fused
 
-python3 -m pip install --quiet --upgrade "mlx-lm>=0.21" pyyaml
+# Install mlx-lm only if it's missing (works with pip venvs and uv venvs)
+python3 -c "import mlx_lm, yaml" 2>/dev/null || {
+  if command -v uv >/dev/null; then uv pip install --python "$(command -v python3)" "mlx-lm>=0.21" pyyaml
+  else python3 -m pip install --quiet --upgrade "mlx-lm>=0.21" pyyaml; fi
+}
 
 if [ ! -f llm/data/train.jsonl ]; then
   echo "No llm/data/train.jsonl yet — run phase 2 first:"
