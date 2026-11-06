@@ -97,8 +97,8 @@ def chat(model, messages, system=None, temperature=0.2, max_tokens=2048):
         return out["choices"][0]["message"]["content"]
     if kind == "anthropic":
         key = os.environ["ANTHROPIC_API_KEY"]
-        payload = {"model": name, "max_tokens": max_tokens, "temperature": temperature,
-                   "messages": messages}
+        # Current Claude models reject `temperature`, so it is not sent.
+        payload = {"model": name, "max_tokens": max_tokens, "messages": messages}
         if system:
             # The system prompt (with the THEE guide) is identical on every call: cache it.
             payload["system"] = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
