@@ -145,7 +145,8 @@ Reply with one ```thee block containing only the assert_eq lines, one per input 
 
 TAMIL_SYSTEM = """You write for Tamil learners in everyday spoken Tamil (பேச்சு தமிழ், the way people talk today,
 technical words like function, list, number stay in English). Reply in exactly this format:
-<task_ta>one or two sentences: the task, as a student would ask it</task_ta>
+<task_ta>one or two sentences: the task, as a student would ask for it (a request, not a question
+about the code; never mention Python)</task_ta>
 <explain_ta>2-4 short sentences explaining how the THEE code works</explain_ta>"""
 
 
