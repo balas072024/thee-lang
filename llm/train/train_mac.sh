@@ -31,11 +31,11 @@ echo "▶ Fusing adapters into $FUSED"
 python3 -m mlx_lm.fuse --model "$BASE" --adapter-path "$ADAPTERS" --save-path "$FUSED"
 
 echo "▶ Scoring on the THEE-Tamil benchmark"
-python3 -m mlx_lm.server --model "$FUSED" --port 8080 >/tmp/thee_mlx_server.log 2>&1 &
+python3 -m mlx_lm.server --model "$FUSED" --port ${THEE_PORT:-8765} >/tmp/thee_mlx_server.log 2>&1 &
 SERVER=$!
 trap 'kill $SERVER 2>/dev/null || true' EXIT
-for _ in $(seq 1 60); do curl -s localhost:8080/v1/models >/dev/null && break; sleep 2; done
-python3 llm/benchmark/run_benchmark.py --model "openai:$FUSED@http://localhost:8080/v1" --workers 1 --system tutor
-python3 llm/benchmark/run_benchmark.py --model "openai:$FUSED@http://localhost:8080/v1" --workers 1 --lang en --system tutor
+for _ in $(seq 1 60); do curl -s localhost:${THEE_PORT:-8765}/v1/models >/dev/null && break; sleep 2; done
+python3 llm/benchmark/run_benchmark.py --model "openai:$FUSED@http://localhost:${THEE_PORT:-8765}/v1" --workers 1 --system tutor
+python3 llm/benchmark/run_benchmark.py --model "openai:$FUSED@http://localhost:${THEE_PORT:-8765}/v1" --workers 1 --lang en --system tutor
 
 echo "✓ Done. Next: bash llm/package/build_ollama.sh"
