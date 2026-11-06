@@ -210,6 +210,7 @@ def main():
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--no-tamil", action="store_true", help="skip the Tamil description step")
+    ap.add_argument("--tamil-model", default="", help="separate model for the Tamil text (default: --model)")
     ap.add_argument("--retry-failed", action="store_true", help="try tasks that failed in an earlier run again")
     a = ap.parse_args()
 
@@ -234,7 +235,7 @@ def main():
                 write_jsonl(failed_log, [{"id": row["id"]}], mode="a")
             print(f"  ✗ {row['id']}", flush=True)
             return
-        task_ta, explain_ta = ("", "") if a.no_tamil else tamil_text(a.model, row, got["code"])
+        task_ta, explain_ta = ("", "") if a.no_tamil else tamil_text(a.tamil_model or a.model, row, got["code"])
         out = {"id": row["id"], "source": a.source if a.source in ("mbpp", "humaneval") else "file",
                "fn": _fn_name(got["code"]), "prompt_en": row["text"].strip(), "prompt_ta": task_ta,
                "python": row["code"], "thee": got["code"], "tests": got["tests"],

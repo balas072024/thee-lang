@@ -74,9 +74,11 @@ def chat(model, messages, system=None, temperature=0.2, max_tokens=2048):
     if kind == "ollama":
         msgs = ([{"role": "system", "content": system}] if system else []) + messages
         host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-        out = _post(f"{host}/api/chat", {"model": name, "messages": msgs, "stream": False,
-                                         "options": {"temperature": temperature,
-                                                     "num_predict": max_tokens}}, {})
+        payload = {"model": name, "messages": msgs, "stream": False,
+                   "options": {"temperature": temperature, "num_predict": max_tokens}}
+        if os.environ.get("OLLAMA_THINK", "").lower() in ("0", "false", "off"):
+            payload["think"] = False  # faster answers from thinking models (qwen3 etc.)
+        out = _post(f"{host}/api/chat", payload, {})
         return out["message"]["content"]
     if kind == "openai":
         name, _, base = name.partition("@")
