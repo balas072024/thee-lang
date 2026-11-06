@@ -12,6 +12,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -94,11 +95,36 @@ def chat(model, messages, system=None, temperature=0.2, max_tokens=2048):
         payload = {"model": name, "max_tokens": max_tokens, "temperature": temperature,
                    "messages": messages}
         if system:
-            payload["system"] = system
+            # The system prompt (with the THEE guide) is identical on every call: cache it.
+            payload["system"] = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
         out = _post("https://api.anthropic.com/v1/messages", payload,
                     {"x-api-key": key, "anthropic-version": "2023-06-01"})
+        _add_cost(name, out.get("usage", {}))
         return "".join(b.get("text", "") for b in out["content"])
     raise ValueError(f"Unknown model backend '{kind}'. Use ollama:, openai: or anthropic:")
+
+
+# ── API cost tracking (USD per million tokens: input, output, cache write, cache read) ──
+PRICES = {"claude-sonnet-5-5": (2.0, 10.0, 2.5, 0.20), "claude-opus-5-5": (4.0, 20.0, 5.0, 0.20),
+          "claude-fable-5-1": (10.0, 50.0, 12.5, 1.0), "claude-haiku-5-5": (1.0, 5.0, 1.25, 0.10)}
+_cost = {"usd": 0.0, "calls": 0}
+_cost_lock = threading.Lock()
+
+
+def _add_cost(model, usage):
+    p = PRICES.get(model, PRICES["claude-opus-5-5"])  # unknown model: assume the dearer rate
+    usd = (usage.get("input_tokens", 0) * p[0] + usage.get("output_tokens", 0) * p[1]
+           + usage.get("cache_creation_input_tokens", 0) * p[2]
+           + usage.get("cache_read_input_tokens", 0) * p[3]) / 1e6
+    with _cost_lock:
+        _cost["usd"] += usd
+        _cost["calls"] += 1
+
+
+def api_cost():
+    """Estimated Anthropic API spend so far in this process (USD) and number of calls."""
+    with _cost_lock:
+        return _cost["usd"], _cost["calls"]
 
 
 def read_jsonl(path):

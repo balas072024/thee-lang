@@ -14,6 +14,7 @@ Sources:
   --source mbpp            MBPP sanitized, 427 tasks (needs `pip install datasets`)
   --source mbpp-full       all 974 MBPP tasks
   --source humaneval       OpenAI HumanEval (same)
+  --source kodcode:3000    3,000 easy/medium function tasks from KodCode-V1 (447K, with unit tests)
   --source file.jsonl      your own rows: {"id", "text", "code", "tests": ["assert f(1) == 2", ...]}
 
 Example (Mac, with Ollama running a strong local coder, or the Anthropic API):
@@ -32,7 +33,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from common import chat, read_jsonl, run_with_tests, write_jsonl  # noqa: E402
+from common import api_cost, chat, read_jsonl, run_with_tests, write_jsonl  # noqa: E402
 from prompts import reference_text  # noqa: E402
 
 _lock = threading.Lock()
@@ -40,6 +41,8 @@ _lock = threading.Lock()
 # ── sources ──────────────────────────────────────────────────────────────
 
 def load_source(source, limit=0):
+    if source.startswith("kodcode"):
+        return load_kodcode(source, limit)
     if source in ("mbpp", "mbpp-full", "humaneval"):
         try:
             from datasets import load_dataset
@@ -64,6 +67,61 @@ def load_source(source, limit=0):
     else:
         rows = read_jsonl(source)
     return rows[:limit] if limit else rows
+
+
+KODCODE_SUBSETS = {"Leetcode", "Prefill", "Algorithm", "Data_Structure", "Filter", "Docs", "Evol"}
+
+
+def _kodcode_asserts(test_code):
+    """Plain `assert f(...) == x` statements from a pytest file, comments removed."""
+    import ast
+    try:
+        tree = ast.parse(test_code)
+    except SyntaxError:
+        return []
+    out = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assert) and node.msg is None:
+            line = "assert " + ast.unparse(node.test)
+            if python_assert_to_thee(line):
+                out.append(line)
+    return out
+
+
+def load_kodcode(source, limit=0, seed=7):
+    """--source kodcode[:N]  — N easy/medium single-function tasks (default 3000) from KodCode-V1,
+    each with >=2 tests our converter can turn into THEE assert_eq lines."""
+    import ast
+    import random
+    try:
+        from datasets import load_dataset
+    except ImportError:
+        sys.exit("Install the datasets package first:  pip install datasets")
+    want = int(source.split(":", 1)[1]) if ":" in source else 3000
+    if limit:
+        want = min(want, limit)
+    ds = load_dataset("KodCode/KodCode-V1", split="train", streaming=True)
+    pool, seen = [], 0
+    for r in ds:
+        seen += 1
+        if (r["style"] != "instruct" or r["subset"] not in KODCODE_SUBSETS
+                or r["gpt_difficulty"] not in ("easy", "medium") or "import " in r["solution"]):
+            continue
+        try:
+            if len(ast.literal_eval(r["test_info"])) != 1:  # one function per task
+                continue
+        except (ValueError, SyntaxError):
+            continue
+        tests = _kodcode_asserts(r["test"])
+        if len(tests) < 2:
+            continue
+        pool.append({"id": f"kodcode-{r['question_id']}", "text": r["question"],
+                     "code": r["solution"], "tests": tests[:8]})
+        if len(pool) >= want * 4:  # enough to sample from without reading all 447K
+            break
+    random.Random(seed).shuffle(pool)
+    print(f"KodCode: scanned {seen}, {len(pool)} usable, taking {min(want, len(pool))}")
+    return pool[:want]
 
 
 # ── Python assert → THEE assert_eq ───────────────────────────────────────
@@ -216,6 +274,8 @@ def main():
     ap.add_argument("--no-tamil", action="store_true", help="skip the Tamil description step")
     ap.add_argument("--tamil-model", default="", help="separate model for the Tamil text (default: --model)")
     ap.add_argument("--retry-failed", action="store_true", help="try tasks that failed in an earlier run again")
+    ap.add_argument("--budget", type=float, default=0,
+                    help="stop starting new tasks once estimated Anthropic API spend reaches this many USD")
     a = ap.parse_args()
 
     rows = load_source(a.source, a.limit)
@@ -228,6 +288,8 @@ def main():
     stats = {"ok": 0, "fail": 0}
 
     def work(row):
+        if a.budget and api_cost()[0] >= a.budget:
+            return  # budget reached: skip (it stays undone, so a later run can pick it up)
         try:
             got, repairs = translate_one(a.model, row, a.retries)
         except Exception as e:
@@ -261,6 +323,9 @@ def main():
 
     with ThreadPoolExecutor(max_workers=a.workers) as ex:
         list(ex.map(work, todo))
+    usd, calls = api_cost()
+    if calls:
+        print(f"Anthropic API: {calls} calls, about ${usd:.2f}" + (f" (budget ${a.budget:.2f})" if a.budget else ""))
     total = stats["ok"] + stats["fail"]
     print(f"\nverified {stats['ok']}/{total}" + (f" ({stats['ok'] / total:.0%})" if total else "") + f" → {a.out}")
 
