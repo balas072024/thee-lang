@@ -31,6 +31,8 @@ SYSTEM """{sys_prompt}"""
 
 PARAMETER temperature 0.3
 PARAMETER top_p 0.9
+PARAMETER repeat_penalty 1.15
+PARAMETER num_predict 700
 PARAMETER num_ctx 4096
 PARAMETER stop "<|im_end|>"
 PARAMETER stop "<|im_start|>"
