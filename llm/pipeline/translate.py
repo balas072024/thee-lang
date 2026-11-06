@@ -236,7 +236,12 @@ def main():
                 write_jsonl(failed_log, [{"id": row["id"]}], mode="a")
             print(f"  ✗ {row['id']}", flush=True)
             return
-        task_ta, explain_ta = ("", "") if a.no_tamil else tamil_text(a.tamil_model or a.model, row, got["code"])
+        task_ta, explain_ta = "", ""
+        if not a.no_tamil:
+            try:
+                task_ta, explain_ta = tamil_text(a.tamil_model or a.model, row, got["code"])
+            except Exception as e:  # a slow/failed Tamil reply must not lose the verified code
+                print(f"  ! {row['id']}: Tamil text skipped ({e})", flush=True)
         out = {"id": row["id"], "source": a.source if a.source in ("mbpp", "humaneval") else "file",
                "fn": _fn_name(got["code"]), "prompt_en": row["text"].strip(), "prompt_ta": task_ta,
                "python": row["code"], "thee": got["code"], "tests": got["tests"],
