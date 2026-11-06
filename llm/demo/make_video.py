@@ -124,11 +124,22 @@ def panel(d, box, title=None, title_color=MUTED):
         draw_line(d, (box[0] + 22, box[1] + 14), title, 18, title_color)
 
 
-def code_block(d, x, y, code, size=22, max_lines=14):
+def clip_line(text, size, max_w, base="mono"):
+    if text_width(text, size, base) <= max_w:
+        return text
+    while text and text_width(text + " …", size, base) > max_w:
+        text = text[:-1]
+    return text + " …"
+
+
+def code_block(d, x, y, code, size=22, max_lines=14, max_w=None):
     lh = int(size * 1.45)
-    lines = code.splitlines()[:max_lines]
+    lines = [ln for ln in code.replace("```thee", "").replace("```", "").strip("\n").splitlines()][:max_lines]
     for i, ln in enumerate(lines):
-        draw_line(d, (x, y + i * lh), ln.replace("\t", "    "), size, FG, base="mono", color_keywords=True)
+        ln = ln.replace("\t", "    ")
+        if max_w:
+            ln = clip_line(ln, size, max_w)
+        draw_line(d, (x, y + i * lh), ln, size, FG, base="mono", color_keywords=True)
     return y + len(lines) * lh
 
 
@@ -148,22 +159,22 @@ def scene_demo(n, total, demo, stage):
     """stage 1: question; 2: + code; 3: + run result; 4: + explanation"""
     img, d = canvas()
     header(d, f"Demo {n}/{total}")
-    panel(d, (48, 78, W - 48, 160), "கேள்வி (question)")
+    panel(d, (48, 78, W - 48, 166), "கேள்வி (question)")
     q = re.sub(r"\s*Function பேரு `[^`]+`\.?", "", demo["question"]).strip()
-    for i, ln in enumerate(wrap(q, 26, W - 140)[:2]):
-        draw_line(d, (70, 108 + i * 32), ln, 26, FG)
+    for i, ln in enumerate(wrap(q, 26, W - 140)[:1]):
+        draw_line(d, (70, 116 + i * 32), ln, 26, FG)
     if stage >= 2:
-        panel(d, (48, 176, 760, 650), "THEE code (model-ஓட பதில்)")
-        code_block(d, 70, 212, demo["code"], size=21, max_lines=13)
+        panel(d, (48, 182, 760, 650), "THEE code (model-ஓட பதில்)")
+        code_block(d, 70, 216, demo["code"], size=20, max_lines=13, max_w=760 - 70 - 22)
     if stage >= 3:
         v = demo["verdict"]
         color, label = {"verified": (OK, "✅ ஓடி சரிபார்த்தது"), "ran": (WARN, "🟡 ஓடுது, சரிபார்க்கல"),
                         "failed": (ERR, "⚠️ சரிபார்க்க முடியல")}[v]
-        panel(d, (780, 176, W - 48, 400), "THEE interpreter-ல ஓட்டினது", MUTED)
-        draw_line(d, (802, 212), label.replace("✅ ", "").replace("🟡 ", "").replace("⚠️ ", ""), 24, color)
-        d.ellipse((W - 92, 214, W - 72, 234), fill=color)
+        panel(d, (780, 182, W - 48, 400), "THEE interpreter-ல ஓட்டினது", MUTED)
+        draw_line(d, (802, 216), label.replace("✅ ", "").replace("🟡 ", "").replace("⚠️ ", ""), 24, color)
+        d.ellipse((W - 92, 220, W - 72, 240), fill=color)
         draw_line(d, (802, 248), f"attempt {demo['attempts']}", 18, MUTED)
-        body = demo["output"] if v != "failed" else (demo["error"].splitlines() or [""])[-1]
+        body = demo["output"] if v != "failed" else (demo["error"].splitlines() or [""])[-1].replace("தீ பிழை: ", "")
         y = 282
         for ln in (body or "(no output)").splitlines()[:4]:
             for wl in wrap(ln, 20, W - 48 - 830, "mono")[:2]:
@@ -172,7 +183,7 @@ def scene_demo(n, total, demo, stage):
     if stage >= 4 and demo.get("explanation"):
         panel(d, (780, 416, W - 48, 650), "விளக்கம் (explanation)")
         y = 450
-        for ln in wrap(demo["explanation"], 19, W - 48 - 830)[:6]:
+        for ln in wrap(demo["explanation"], 19, W - 48 - 830 - 10)[:6]:
             draw_line(d, (802, y), ln, 19, FG)
             y += 30
     return img
