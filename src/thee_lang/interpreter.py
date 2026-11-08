@@ -42,7 +42,8 @@ class TheeError(Exception):
     """User-throwable error in THEE programs"""
     def __init__(self, msg, node=None):
         self.thee_message = msg
-        loc = f" L{node.line}:C{node.column}" if node and hasattr(node,'line') else ""
+        line = getattr(node, 'line', 0) if node is not None else 0
+        loc = f" L{line}:C{node.column}" if line else ""
         super().__init__(f"தீ பிழை{loc}: {msg}")
 class TheeRuntimeError(TheeError): pass
 
@@ -495,7 +496,18 @@ class TheeInterpreter:
     def run(self, program):
         for s in program.statements: self.execute(s)
 
+    def _index_msg(self, o, i):
+        ln = getattr(self, "_cur_line", 0); at = f" (line {ln})" if ln else ""
+        if isinstance(o, dict):
+            return f"Key {i!r} dict-ல இல்ல{at} — keys: {list(o)[:5]}. முதல்ல `contains(keys(d), k)` வச்சு check பண்ணுங்க"
+        if isinstance(o, (list, str)):
+            kind = "list" if isinstance(o, list) else "string"
+            if len(o) == 0: return f"Index error{at}: காலி {kind}-ல [{i}] இல்ல — len 0. காலி input-ஐ முதல்லயே check பண்ணுங்க"
+            return f"Index error{at}: [{i}] range-க்கு வெளிய — {kind} len {len(o)}, சரியான index 0..{len(o)-1}"
+        return f"Index error{at}: {type(o).__name__}-ஐ [{i}] வச்சு index பண்ண முடியாது"
+
     def execute(self, node):
+        if getattr(node, "line", 0): self._cur_line = node.line
         if isinstance(node, LetDeclaration):
             self.env.set(node.name, self.evaluate(node.value), node.is_const)
         elif isinstance(node, LightStatement):
@@ -559,7 +571,7 @@ class TheeInterpreter:
         if isinstance(node, IndexAccess):
             o = self.evaluate(node.object); i = self.evaluate(node.index)
             try: return o[i] if isinstance(o, dict) else o[int(i)]
-            except: raise TheeRuntimeError(f"Index error", node)
+            except Exception: raise TheeRuntimeError(self._index_msg(o, i), node)
         if isinstance(node, PipeExpression): return self._pipe(node)
         if isinstance(node, Assignment):
             v = self.evaluate(node.value)
