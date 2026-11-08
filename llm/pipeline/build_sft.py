@@ -100,6 +100,7 @@ def main():
     ap.add_argument("--lesson-repeat", type=int, default=3, help="lessons are few, so repeat them")
     ap.add_argument("--no-checks", action="store_true",
                     help="answers without the assert_eq self-checks (v1 style; v2 with checks regressed)")
+    ap.add_argument("--extra-repeat", type=int, default=2, help="repeat targeted verified_*.jsonl sets (few, aimed at weak spots)")
     ap.add_argument("--out-dir", default="", help="write train/valid here (default: --data-dir)")
     a = ap.parse_args()
     global CHECKS
@@ -111,6 +112,12 @@ def main():
     repairs_p = os.path.join(a.data_dir, "repairs.jsonl")
     lessons_p = os.path.join(LLM, "seed", "lessons.jsonl")
     verified = read_jsonl(verified_p) if os.path.exists(verified_p) else []
+    import glob as _g
+    for extra in sorted(_g.glob(os.path.join(a.data_dir, "verified_*.jsonl"))):
+        if extra.endswith((".failed.jsonl", "_repairs.jsonl")): continue
+        rows = read_jsonl(extra)
+        print(f"+ {os.path.basename(extra)}: {len(rows)} tasks x{a.extra_repeat}")
+        verified += rows * a.extra_repeat
     repairs = read_jsonl(repairs_p) if os.path.exists(repairs_p) else []
     lessons = read_jsonl(lessons_p) if os.path.exists(lessons_p) else []
 

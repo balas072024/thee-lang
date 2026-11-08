@@ -45,6 +45,17 @@ def quick_score(base, adapter_dir, tasks, max_tokens=350):
     return passed
 
 
+def quick_score_isolated(base, adapter_dir, n_quick):
+    """Score in a separate process so all of its GPU memory is returned when it exits."""
+    out = subprocess.run([sys.executable, os.path.abspath(__file__), "--score-only", base, adapter_dir, str(n_quick)],
+                         capture_output=True, text=True, cwd=ROOT)
+    m = re.search(r"SCORE=(\d+)", out.stdout)
+    if not m:
+        print(out.stderr[-1500:], flush=True)
+        raise RuntimeError("gate scoring failed")
+    return int(m.group(1))
+
+
 def snapshot(adapters, step):
     """Copy one saved checkpoint into its own adapter folder (what mlx_lm.load expects)."""
     import shutil
@@ -91,7 +102,20 @@ def main():
     while True:
         ckpt = os.path.join(a.adapters, f"{next_gate:07d}_adapters.safetensors")
         if os.path.exists(ckpt) and time.time() - os.path.getmtime(ckpt) > 5:  # fully written
-            score = quick_score(base, snapshot(a.adapters, next_gate), tasks)
+            # Pause training while the gate generates: two models on the GPU at once ran out of
+            # Metal memory (v4). SIGSTOP keeps its state; SIGCONT resumes exactly where it was.
+            import gc, signal
+            proc.send_signal(signal.SIGSTOP)
+            try:
+                score = quick_score_isolated(base, snapshot(a.adapters, next_gate), len(tasks))
+            finally:
+                gc.collect()
+                try:
+                    import mlx.core as mx
+                    (getattr(mx, "clear_cache", None) or mx.metal.clear_cache)()
+                except Exception:
+                    pass
+                proc.send_signal(signal.SIGCONT)
             gates.append({"step": next_gate, "passed": score, "of": len(tasks)})
             with open(log_path, "a") as f:
                 f.write(json.dumps(gates[-1]) + "\n")
@@ -107,6 +131,7 @@ def main():
             elif since_best >= a.patience:
                 reason = f"no improvement for {a.patience} gates"
             if reason != "finished":
+                proc.send_signal(__import__('signal').SIGCONT)
                 proc.terminate()
                 proc.wait()
                 break
@@ -131,4 +156,8 @@ def main():
 
 
 if __name__ == "__main__":
+    if len(sys.argv) == 5 and sys.argv[1] == "--score-only":
+        _b, _ad, _n = sys.argv[2], sys.argv[3], int(sys.argv[4])
+        print(f"SCORE={quick_score(_b, _ad, read_jsonl(os.path.join(LLM, 'benchmark', 'tasks.jsonl'))[:_n])}")
+        sys.exit(0)
     main()

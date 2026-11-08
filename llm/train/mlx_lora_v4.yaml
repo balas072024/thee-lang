@@ -1,0 +1,29 @@
+# LoRA fine-tune for Apple Silicon with mlx-lm (tested settings for an M1 Max, 32 GB).
+# Run from the repo root:  bash llm/train/train_mac.sh
+#
+# 1.5B fits a phone after Q4 quantization (~1 GB). For a stronger desktop model,
+# switch to Qwen/Qwen2.5-Coder-3B-Instruct (≈2 GB at Q4) and lower batch_size to 2.
+model: "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+train: true
+data: "llm/data"                 # train.jsonl + valid.jsonl from build_sft.py
+fine_tune_type: lora
+mask_prompt: true                # learn only the assistant replies
+num_layers: 16                   # LoRA on the top 16 transformer blocks
+batch_size: 2
+grad_accumulation_steps: 2
+iters: 400                       # ~1.5 epochs for ~1k examples; val loss bottomed out near 0.75 epoch on the first run
+learning_rate: 1.0e-4
+max_seq_length: 1536
+grad_checkpoint: true
+steps_per_report: 20
+steps_per_eval: 50
+val_batches: 25
+save_every: 50
+adapter_path: "llm/train/adapters"
+seed: 7
+lora_parameters:
+  keys: ["self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj", "self_attn.o_proj",
+         "mlp.gate_proj", "mlp.up_proj", "mlp.down_proj"]
+  rank: 16
+  scale: 20.0
+  dropout: 0.05
