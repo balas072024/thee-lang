@@ -25,3 +25,6 @@ llm/train/adapters-*/
 llm/train/fused-*/
 llm/train/gated_run.yaml
 llm/data/v*/
+
+llm/train/fused.*/
+llm/package/Modelfile.*

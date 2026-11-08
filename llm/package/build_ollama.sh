@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Phase 4: fused model → GGUF → Ollama model "thee" (Q4_K_M, ~1 GB for 1.5B).
+# Phase 4: fused model → GGUF → Ollama model "thee" (Q8_0, ~1.6 GB for 1.5B; QUANT=q4_K_M for ~1 GB).
 #   bash llm/package/build_ollama.sh
 #   OLLAMA_USER=yourname bash llm/package/build_ollama.sh   # also push to ollama.com as yourname/thee
 set -euo pipefail
@@ -7,7 +7,7 @@ cd "$(dirname "$0")/../.."
 
 FUSED=${FUSED:-llm/train/fused}
 OUT=llm/package
-QUANT=${QUANT:-q4_K_M}
+QUANT=${QUANT:-q8_0}
 
 [ -d "$FUSED" ] || { echo "No $FUSED — run llm/train/train_mac.sh (or train_gpu.py) first"; exit 1; }
 command -v ollama >/dev/null || { echo "Install Ollama first: https://ollama.com/download"; exit 1; }

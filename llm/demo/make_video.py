@@ -261,17 +261,26 @@ def scene_end():
 
 # ── narration + encoding ─────────────────────────────────────────────────
 
-VOICE = "ta-IN-PallaviNeural"  # set by --voice; "vani" = the macOS system voice
+VOICE = "sarvam:kavitha"  # --voice: sarvam:<speaker> (Bulbul v3, default), sarvam:all (rotate kavitha/shruti/gokul/vijay/mani per scene), an edge-tts name, or "vani"
+_SCENE = [0]
 
 
 def tts(text, path):
-    """Tamil narration. Default: Microsoft Neural Tamil via edge-tts (free, natural, handles the
+    """Tamil narration. Default: Sarvam Bulbul v3 (most natural Tamil). Also: Microsoft Neural Tamil via edge-tts (free, natural, handles the
     English words mixed into spoken Tamil). Fallback: macOS `say -v Vani`."""
     if not text:
         return 0.0
     raw = path + ".src"
-    if VOICE.lower() != "vani":
-        subprocess.run([sys.executable, "-m", "edge_tts", "--voice", VOICE, "--rate=-5%",
+    v = VOICE
+    if v.lower() == "sarvam:all":
+        from tts_sarvam import TAMIL_PICKS
+        v = "sarvam:" + TAMIL_PICKS[_SCENE[0] % len(TAMIL_PICKS)]; _SCENE[0] += 1
+    if v.lower().startswith("sarvam"):
+        sys.path.insert(0, HERE)
+        from tts_sarvam import synth
+        synth(text, raw, speaker=(v.split(":", 1)[1] if ":" in v else "kavitha"))
+    elif v.lower() != "vani":
+        subprocess.run([sys.executable, "-m", "edge_tts", "--voice", v, "--rate=-5%",
                         "--text", text, "--write-media", raw], check=True)
     else:
         subprocess.run(["say", "-v", "Vani", "-r", "165", "-o", raw + ".aiff", text], check=True)
@@ -323,11 +332,11 @@ def build_scenes(data):
                    "Keywords-ஐ தமிழ்லயும் எழுதலாம், romanized-ஆவும் எழுதலாம். ரெண்டும் ஒரே மாதிரி ஓடும்.", 3.0))
     scenes.append((scene_sandbox(data["sandbox"]),
                    "Model எழுதின code sandbox-ல தான் ஓடும். Files, network எதையும் தொட முடியாது.", 3.0))
-    scores = [("Base model", 6.4, (120, 113, 108)), ("v1", 16.5, (191, 120, 60))]
+    scores = [("Base model", 6.4, (120, 113, 108)), ("v1", 16.5, (191, 120, 60)), ("v3", 50.5, ACCENT)]
     if v2 is not None:
         scores.append(("v2", v2, ACCENT))
     scenes.append((scene_score(scores),
-                   "Benchmark-ல base model ஆறு சதவீதம், எங்க model பதினாறு சதவீதம். இன்னும் நிறைய data-ஓட அடுத்த version வருது.", 3.0))
+                   "Benchmark-ல base model ஆறு சதவீதம் தான். எங்க புது v3 model ஐம்பது சதவீதம், எட்டு மடங்கு முன்னேற்றம்!", 3.0))
     scenes.append((scene_end(), "Ollama-ல, ollama run thee. நன்றி!", 2.5))
     return scenes, passed
 
@@ -336,8 +345,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", default=os.path.join(HERE, "demo.json"))
     ap.add_argument("--frames-only", action="store_true")
-    ap.add_argument("--voice", default="ta-IN-PallaviNeural",
-                    help="ta-IN-PallaviNeural (female), ta-IN-ValluvarNeural (male), or vani (macOS)")
+    ap.add_argument("--voice", default="sarvam:kavitha",
+                    help="sarvam:<kavitha|shruti|gokul|vijay|mani|...>, sarvam:all, an edge-tts voice, or vani")
     a = ap.parse_args()
     global VOICE
     VOICE = a.voice
