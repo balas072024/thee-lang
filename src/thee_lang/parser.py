@@ -229,6 +229,14 @@ class TheeParser:
     def parse_statement(self):
         self.skip_newlines()
         if self.at_end(): return None
+        tok = self.peek()
+        node = self._parse_statement()
+        if node is not None and not getattr(node, "line", 0):
+            try: node.line, node.column = tok.line, tok.column
+            except Exception: pass
+        return node
+
+    def _parse_statement(self):
         tt = self.peek_type()
         if tt in (TokenType.LET, TokenType.CONST): return self.parse_let()
         if tt == TokenType.LIGHT: return self.parse_light()
@@ -368,6 +376,8 @@ class TheeParser:
             if self.match(TokenType.AS): self.advance(); alias = self.expect(TokenType.IDENTIFIER).value
             return ImportStatement(path=path, alias=alias, line=t.line, column=t.column)
         mod = self.expect(TokenType.IDENTIFIER).value; alias = None
+        while self.match(TokenType.DOT):  # dotted modules: konar python.numpy
+            self.advance(); mod += "." + self.expect(TokenType.IDENTIFIER).value
         if self.match(TokenType.AS): self.advance(); alias = self.expect(TokenType.IDENTIFIER).value
         return ImportStatement(path=mod, alias=alias, line=t.line, column=t.column)
 

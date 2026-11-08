@@ -1,5 +1,5 @@
 // ═══ THEE v6.0 — Calculator with Classes ═══
-// Run: thee calculator.thee
+// Run: thee calculator.th
 
 vagu Calculator {
     thee init() {

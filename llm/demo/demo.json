@@ -1,0 +1,58 @@
+{
+  "demos": [
+    {
+      "question": "ரெண்டு number-ஐ கூட்டி return பண்ணுற function எழுதுங்க. Function பேரு `add`.",
+      "code": "thee add(a, b) {\n    kanal a + b\n}",
+      "probe": "moochhu add(7, 5)",
+      "expected": "12",
+      "output": "12",
+      "error": "",
+      "explanation": "இந்த function-க்கு a, b ரெண்டு number-ஐ input-ஆ எடுத்துக்குது. kanal மூலமா a + b கணக்கிட்டு, அந்த result-ஐ return பண்ணுது. அதனால, a + b கூட்டிக்கொண்டு பண்ணும்.",
+      "verdict": "correct",
+      "attempts": 1
+    },
+    {
+      "question": "ஒரு number இரட்டைப்படையா இல்லையான்னு சொல்ற function எழுதுங்க. Function பேரு `is_even`.",
+      "code": "thee is_even(n) {\n    endral n % 2 == 0 {\n        kanal unmai\n    } illai {\n        kanal poi\n    }\n}",
+      "probe": "moochhu is_even(10)",
+      "expected": "உண்மை (true)",
+      "output": "உண்மை (true)",
+      "error": "",
+      "explanation": "இந்த function-ல, `n` அப்படீங்கற variable-ஐ எடுத்துக்கும். `endral n % 2 == 0` னா, `kanal unmai` னா, இல்லன்னா `kanal poi` னா. அதனால, `n` இரட்டைப்படையா இல்லன்னா, அதனால `n` இரட்டைப்படையா இல்லன்னா.",
+      "verdict": "correct",
+      "attempts": 1
+    },
+    {
+      "question": "ஒரு list-ல இருக்கிற numbers-ஓட கூட்டுத்தொகை கண்டுபிடிக்கிற function எழுதுங்க. Function பேரு `list_total`.",
+      "code": "thee list_total(numbers) {\n    na total = 0\n    ozhugu number ul numbers {\n        total = total + number\n    }\n    kanal total\n}",
+      "probe": "moochhu list_total([4, 8, 15])",
+      "expected": "27",
+      "output": "27",
+      "error": "",
+      "explanation": "இந்த function-ல `thee` keyword வச்சு `list_total` னு ஒரு function உருவாக்கப்படுது. `na total = 0` னு கூட்டுத்தொகைகளை 0-ல ஆரம்பிக்கிறோம். `ozhugu number ul numbers` loop-ல ஒவ்வொரு number-ஐயும் எடுத்து, `total = total + number` னு கூட்டி, `kanal total` மூலமா அந்த கூட்டுத்தொகையை திருப்பிக் கொடுக்கிறோம்.",
+      "verdict": "correct",
+      "attempts": 1
+    },
+    {
+      "question": "1 முதல் n வரை இரட்டைப்படை numbers-ஐ list-ஆ குடுக்கிற function எழுதுங்க. Function பேரு `evens_upto`.",
+      "code": "thee evens_upto(n) {\n    na evens = []\n    ozhugu i ul range(0, n + 1) {\n        endral i % 2 == 0 {\n            evens.push(i)\n        }\n    }\n    kanal evens\n}",
+      "probe": "moochhu evens_upto(10)",
+      "expected": "[2, 4, 6, 8, 10]",
+      "output": "[0, 2, 4, 6, 8, 10]",
+      "error": "",
+      "explanation": "இந்த function-ல, `n` வரை இரட்டைப்படை numbers-ஐ `ozhugu` loop மூலமா ஒவ்வொரு எண்ணையும் எடுத்து, `endral` condition-ல அது 2-ஆல் வகுபடுற இரட்டைப்படை எண் இரட்டைப்படை வகுபடுத்தா மீதி 0 வரை கீழ தேவை வரும். கடைசியா, `kanal` மூலமா அந்த list-ஐ திருப்பி கொடுக்குது.",
+      "verdict": "wrong",
+      "attempts": 1
+    }
+  ],
+  "sandbox": {
+    "code": "நா தகவல் = read_file(\"/etc/passwd\")",
+    "error": "தீ பிழை: 'read_file' is blocked in sandbox mode (பாதுகாப்பு முறையில் 'read_file' அனுமதி இல்லை)"
+  },
+  "convert": {
+    "roman": "thee kootu(a, b) {\n    kanal a + b\n}\nmoochhu kootu(2, 3)",
+    "tamil": "தீ kootu(a, b) {\n    கனல் a + b\n}\nமூச்சு kootu(2, 3)",
+    "output": "5"
+  },
+  "score_v2": null
+}
